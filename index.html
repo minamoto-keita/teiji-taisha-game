@@ -68,7 +68,8 @@
   .tbtn { position: fixed; z-index: 6; width: 72px; height: 72px; border-radius: 50%; background: rgba(242,201,76,.18);
     border: 2px solid rgba(242,201,76,.6); color: #f2c94c; font-weight: 800; font-size: 13px; touch-action: none; font-family: inherit; }
   .tbtn.on { background: rgba(242,201,76,.6); color: #111; }
-  #tSneak { right: 20px; bottom: 120px; } #tAct { right: 104px; bottom: 76px; display: none; }
+  #tSneak { right: 20px; bottom: 120px; } #tAct { right: 104px; bottom: 76px; display: none; } #tDash { right: 20px; bottom: 200px; } #tCall { right: 104px; bottom: 160px; }
+  #items { position: fixed; left: 16px; top: 128px; font: 600 13px sans-serif; color: #fff; padding: 6px 10px; }
   .who { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 14px; text-align: left; }
   .face.sm { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
   .who .nm { font-size: 20px; font-weight: 900; } .who .dp { font-size: 12px; opacity: .85; margin-top: 4px; } .who b { color: #f2c94c; letter-spacing: 1px; }
@@ -92,7 +93,9 @@
 <div id="hint" class="hud panel"><div class="chk"></div><span id="hintText">会社の外へ</span></div>
 <div id="dialog" class="hud panel"><div class="name" id="dName"></div><div class="line" id="dLine"></div></div>
 <div id="progress" class="hud panel"><div id="pText">エレベーター待ち…</div><div class="bar"><div class="fill" id="pFill"></div></div></div>
-<div id="touch"><button class="tbtn" id="tSneak">しゃがむ</button><button class="tbtn" id="tAct">調べる</button></div>
+<div id="touch"><button class="tbtn" id="tSneak">しゃがむ</button><button class="tbtn" id="tAct">調べる</button><button class="tbtn" id="tDash">ダッシュ</button><button class="tbtn" id="tCall">電話</button></div>
+<div id="items" class="hud panel" style="display:none"></div>
+<div id="toast" style="position:fixed;left:50%;top:22%;transform:translateX(-50%);font:700 18px sans-serif;color:#fff;background:rgba(20,24,30,.8);padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20"></div>
 <div id="overlay"><div class="box" id="ovBox"></div></div>
 
 <script src="faces.js"></script>
@@ -750,6 +753,14 @@ function animatePerson(p, dt, moveSpeed, crouch, pose) {
   p.body.position.y = Math.abs(Math.cos(p.phase)) * 0.03 * amt - c * 0.38;
   p.upper.rotation.x = c * 0.45;
 }
+function speechSprite(text) {
+  const t = canvasTex(512, 128, (g, w, h) => {
+    g.fillStyle = 'rgba(255,255,255,.95)'; g.beginPath(); g.roundRect(8, 8, w - 16, h - 40, 26); g.fill();
+    g.beginPath(); g.moveTo(w / 2 - 14, h - 33); g.lineTo(w / 2, h - 8); g.lineTo(w / 2 + 14, h - 33); g.fill();
+    g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#222'; g.fillText(text, w / 2, (h - 32) / 2 + 6);
+  });
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.scale.set(1.5, 0.375, 1); sp.renderOrder = 11; return sp;
+}
 function labelSprite(text, color = '#ffffff', size = 0.5) {
   const t = canvasTex(256, 128, (g, w, h) => { g.font = 'bold 84px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineWidth = 12; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(text, w / 2, h / 2); g.fillStyle = color; g.fillText(text, w / 2, h / 2); });
@@ -1107,14 +1118,17 @@ function buildStage(idx) {
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; G.add(sun, sun.target);
   for (const [x, z] of info.points) { const p = new THREE.PointLight('#f4f6ff', info.pointI || 5, 13, 1.6); p.position.set(x, S.H - 0.3, z); G.add(p); }
   // 座っている同僚
+  const coworkers = [];
   for (const si of info.sitters) {
     const s = info.seats[si]; if (!s) continue;
     const p = makePerson({ shirt: pick(['#dfe6ee', '#f2f2f0', '#2f3540', '#d9cfc0', '#e8d6d6']), pants: '#2b2b2f', hair: pick(['#1b1b1b', '#3a2a20']), style: pick(['short', 'bob', 'long']), smile: Math.random() < .5, jacket: Math.random() < .4 ? pick(['#2e3440', '#3d3f45']) : null });
     p.root.position.set(s.x, 0, s.z); p.root.rotation.y = Math.PI / 2 - s.face; G.add(p.root); animatePerson(p, 0, 0, false, 'sit');
+    const say = speechSprite('お疲れさまでーす！'); say.visible = false; say.position.set(s.x, 1.75, s.z); G.add(say);
+    coworkers.push({ x: s.x, z: s.z, p, say, cool: 0, sayT: 0 });
   }
   scene.fog = new THREE.Fog('#2a2826', 30, 80);
   renderer.toneMappingExposure = info.exposure || 1.0;
-  STAGE = { ...S, ...info };
+  STAGE = { ...S, ...info, coworkers };
   window.__stage = STAGE.id;
 }
 
@@ -1136,7 +1150,8 @@ function spawnBosses() {
     b.cone.renderOrder = 2; b.cone.frustumCulled = false; b.coneN = N;
     b.mark = labelSprite('？', '#f2c94c', 0.5); b.mark.visible = false;
     b.tag = labelSprite(d.name, '#ffffff', 0.32);
-    bossLayer.add(p.root, b.cone, b.mark, b.tag);
+    b.phone = 0; b.phoneTag = labelSprite('電話中…', '#7fd4ff', 0.42); b.phoneTag.visible = false;
+    bossLayer.add(p.root, b.cone, b.mark, b.tag, b.phoneTag);
     placeBoss(b, 0, 0);
     return b;
   });
@@ -1158,6 +1173,7 @@ function placeBoss(b, dt, moving) {
   animatePerson(b.p, dt, moving, false, b.pose || null);
   const top = b.pose === 'sit' ? 1.85 : 2.3;
   b.mark.position.set(b.x, top, b.z); b.mark.visible = b.sus > 0.05 || (state === 'caught' && caughtBy === b);
+  if (b.phoneTag) { b.phoneTag.position.set(b.x, top + 0.05, b.z); b.phoneTag.visible = b.phone > 0 && state === 'play'; if (b.phoneTag.visible) b.mark.visible = false; }
   b.tag.position.set(b.x, top - 0.28, b.z); b.tag.visible = state === 'play';
 }
 
@@ -1170,6 +1186,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); keys[k] = true;
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if (k === 'e' && state === 'play') doAction();
+  if (k === 'q' && state === 'play') usePhone();
   if (k === 'enter' && state !== 'play') { const b = document.querySelector('#overlay .btn'); b && b.click(); }
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -1193,6 +1210,10 @@ const endPtr = e => { if (e.pointerId === joy.id) { joy.id = null; joy.dx = joy.
 view.addEventListener('pointerup', endPtr); view.addEventListener('pointercancel', endPtr);
 $('tSneak').addEventListener('pointerdown', e => { e.preventDefault(); sneakToggle = !sneakToggle; $('tSneak').classList.toggle('on', sneakToggle); });
 $('tAct').addEventListener('pointerdown', e => { e.preventDefault(); doAction(); });
+let dashTouch = false;
+$('tDash').addEventListener('pointerdown', e => { e.preventDefault(); dashTouch = true; });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => $('tDash').addEventListener(ev, () => { dashTouch = false; }));
+$('tCall').addEventListener('pointerdown', e => { e.preventDefault(); usePhone(); });
 function lockPointer() { try { const r = view.requestPointerLock?.(); r && r.catch && r.catch(() => {}); } catch (e) {} }
 
 // ================== 進行 ==================
@@ -1209,6 +1230,9 @@ function startGame(c, sIdx = stageIdx) {
   player.face = Math.atan2(Math.cos(st.yaw), Math.sin(st.yaw));
   yaw = st.yaw; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null; exitTarget = null;
   spawnBosses();
+  phones = 2; graceT = 4; noiseRings.forEach(r => scene.remove(r.m)); noiseRings = []; noiseT = 0;
+  (STAGE.coworkers || []).forEach(c => { c.cool = Math.hypot(c.x - player.x, c.z - player.z) < 2.5 ? 25 : 0; c.say.visible = false; c.sayT = 0; });
+  $('items').style.display = 'block'; updateItems();
   if (elevBoss) { G.remove(elevBoss.root); elevBoss = null; }
   for (const e of STAGE.elevs) { e.open = 0; e.opening = false; }
   const g = $('mFace').getContext('2d'); g.clearRect(0, 0, 80, 80);
@@ -1239,7 +1263,8 @@ function update(dt) {
   const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = -fz, rz = fx;
   let mx = fx * f + rx * r, mz = fz * f + rz * r; const ml = Math.hypot(mx, mz);
   if (ml > 1) { mx /= ml; mz /= ml; }
-  const sp = (crouch ? 1.25 : 2.5) * chara.speed;
+  const dash = !crouch && (keys[' '] || dashTouch);
+  const sp = (crouch ? 1.25 : dash ? 4.3 : 2.5) * chara.speed;
   if (elevWait >= 0) { mx = mz = 0; }
   if (ml > 0.05 && elevWait < 0) {
     player.x += mx * sp * dt; player.z += mz * sp * dt; resolveCollision(player, player.r);
@@ -1248,18 +1273,26 @@ function update(dt) {
   player.speed = ml > 0.05 && elevWait < 0 ? sp * Math.min(1, ml) : 0;
   pl.root.position.set(player.x, 0, player.z); pl.root.rotation.y = Math.PI / 2 - player.face;
   animatePerson(pl, dt, player.speed, crouch);
+  player.dashing = dash && player.speed > 0.5;
+  updateNoise(dt);
+  updateCoworkers(dt, crouch);
 
   let maxSus = 0, seer = null;
   for (const b of bosses) {
     const dx = player.x - b.x, dz = player.z - b.z, d = Math.hypot(dx, dz), toP = Math.atan2(dz, dx);
     const range = b.range * (crouch ? 0.75 : 1);
-    const inCone = d < range && Math.abs(angDiff(toP, b.ang)) < b.fov / 2 && lineOfSight(b.x, b.z, player.x, player.z, crouch);
+    const onPhone = b.phone > 0;
+    if (onPhone) b.phone -= dt;
+    const inCone = !onPhone && d < range && Math.abs(angDiff(toP, b.ang)) < b.fov / 2 && lineOfSight(b.x, b.z, player.x, player.z, crouch);
+    if (player.dashing && d < NOISE_R && !onPhone) b.sus = Math.min(0.95, b.sus + 1.5 * D().gain * dt);
     const bump = d < 1.0 && lineOfSight(b.x, b.z, player.x, player.z, false);
     if (inCone || bump) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
     else b.sus = Math.max(0, b.sus - D().decay * dt);
     if (b.sus > maxSus) { maxSus = b.sus; seer = b; }
     let moving = 0;
-    if (b.sus > 0.25) b.ang += angDiff(toP, b.ang) * Math.min(1, dt * 3);
+    if (onPhone) { b.ang += angDiff(b.phoneAng, b.ang) * Math.min(1, dt * 4); b.sus = Math.max(0, b.sus - 0.6 * dt); }
+    else if (b.lookAt && b.lookAt.t > 0) { b.lookAt.t -= dt; b.ang += angDiff(Math.atan2(b.lookAt.z - b.z, b.lookAt.x - b.x), b.ang) * Math.min(1, dt * 4); }
+    else if (b.sus > 0.25) b.ang += angDiff(toP, b.ang) * Math.min(1, dt * 3);
     else if (b.sweep) { b.look += dt; b.ang = b.sweep.center + Math.sin(b.look * b.sweep.speed) * b.sweep.amp; }
     else {
       const n = b.path[b.wp];
@@ -1307,6 +1340,47 @@ function update(dt) {
   updateHud(crouch, ex);
 }
 
+// ================== ダッシュの足音・電話・同僚の声かけ ==================
+const NOISE_R = 7;
+let phones = 2, noiseRings = [], noiseT = 0, graceT = 0;
+function updateNoise(dt) {
+  noiseT -= dt;
+  if (player.dashing && noiseT <= 0) {
+    noiseT = 0.32;
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48), new THREE.MeshBasicMaterial({ color: '#ffd166', transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    m.rotation.x = -Math.PI / 2; m.position.set(player.x, 0.03, player.z); scene.add(m); noiseRings.push({ m, t: 0 });
+  }
+  for (const r of noiseRings) { r.t += dt; const k = r.t / 0.7; r.m.scale.setScalar(0.3 + k * NOISE_R); r.m.material.opacity = 0.5 * (1 - k); }
+  noiseRings = noiseRings.filter(r => { if (r.t >= 0.7) { scene.remove(r.m); r.m.geometry.dispose(); return false; } return true; });
+}
+function usePhone() {
+  if (state !== 'play' || phones <= 0) return;
+  // 一番こちらを気にしている上司、いなければ一番近い上司の電話を鳴らす
+  let t = null, best = -1;
+  for (const b of bosses) { if (b.phone > 0) continue; const d = Math.hypot(player.x - b.x, player.z - b.z); const score = b.sus * 100 + Math.max(0, 30 - d); if (d < 25 && score > best) { best = score; t = b; } }
+  if (!t) return;
+  phones--; t.phone = 5.5; t.phoneAng = Math.atan2(t.z - player.z, t.x - player.x);
+  showToast(`${t.name}の電話を鳴らした！（残り${phones}回）`); updateItems();
+}
+function updateCoworkers(dt, crouch) {
+  graceT -= dt;
+  for (const c of STAGE.coworkers || []) {
+    c.cool -= dt;
+    if (c.sayT > 0) { c.sayT -= dt; if (c.sayT <= 0) c.say.visible = false; }
+    if (!crouch && c.cool <= 0 && graceT <= 0 && Math.hypot(player.x - c.x, player.z - c.z) < 1.8) {
+      c.cool = 14; c.sayT = 2.2; c.say.visible = true;
+      for (const b of bosses) {
+        if (b.phone > 0) continue;
+        const d = Math.hypot(b.x - c.x, b.z - c.z);
+        if (d < 11) { b.lookAt = { x: c.x, z: c.z, t: 1.6 }; b.sus = Math.min(0.9, b.sus + (0.25 + 0.2 * (1 - d / 11)) * D().gain); }
+      }
+    }
+  }
+}
+function updateItems() { $('items').innerHTML = `電話 <b style="color:#7fd4ff">${'●'.repeat(phones)}${'○'.repeat(2 - phones)}</b>（Q）`; }
+let toastTimer = 0;
+function showToast(t) { const el = $('toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.opacity = 0, 2000); }
+
 function updateHud(crouch, ex) {
   $('time').textContent = fmt(gameSec);
   $('loc').textContent = `${STAGE.floor}・${STAGE.locName(player.x, player.z)}`;
@@ -1321,7 +1395,8 @@ function updateHud(crouch, ex) {
   if (ex) h = ex.type === 'elev' && elevWait >= 0 ? 'エレベーターを待っている…' : ex.label;
   else if (meter > 0.05) h = '視線が外れるのを待つ／しゃがんで机に隠れる';
   else if (crouch) h = '机の陰に身を隠している';
-  else h = 'Shift：しゃがむと机の陰に隠れられる（ガラスは丸見え）';
+  else if (player.dashing) h = 'ダッシュ中：足音で近くの上司に気づかれる！';
+  else h = 'Shift：しゃがむ ／ Space：ダッシュ（足音注意）／ Q：電話で上司の気をそらす';
   $('hintText').textContent = h;
   $('tAct').style.display = ex && ex.type !== 'door' ? 'block' : 'none';
   drawMinimap();
@@ -1348,6 +1423,7 @@ function drawMinimap() {
 }
 
 function caught(b, line, delay = 0) {
+  $('items').style.display = 'none';
   state = 'caught'; caughtBy = b; cutT = 0; document.exitPointerLock?.();
   $('mission').classList.add('alert'); $('mSub').textContent = '上司に見つかった！';
   $('stLabel').textContent = '見つかった'; $('stLabel').className = 'bad'; $('meterFill').style.width = '100%';
@@ -1366,6 +1442,7 @@ function caught(b, line, delay = 0) {
   }, delay * 1000 + 5000);
 }
 function escape(how, delay = 0) {
+  $('items').style.display = 'none';
   state = 'escape'; cutT = 0; document.exitPointerLock?.();
   setTimeout(() => {
     const over = gameSec / 60;
@@ -1432,7 +1509,7 @@ function showSelect() {
     <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
     <div class="diffs"><div class="dlab">画質</div><div class="drow">${qs}</div></div>
     <button class="btn" id="bGo">退社する</button>
-    <p class="keys">PC：WASDで移動・マウスで視点・Shiftでしゃがむ・Eで調べる ／ スマホ：左で移動・右で視点・ボタンでしゃがむ</p>`, true);
+    <p class="keys">PC：WASDで移動・マウスで視点・Shiftでしゃがむ・Spaceでダッシュ・Qで電話・Eで調べる ／ スマホ：左で移動・右で視点・ボタンで操作</p>`, true);
   document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
   document.querySelectorAll('.diff').forEach(el => el.onclick = () => { diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc; });
   document.querySelectorAll('.qual').forEach(el => el.onclick = () => { quality = el.dataset.q; localStorage.setItem('teiji-quality', quality); document.querySelectorAll('.qual').forEach(x => x.classList.toggle('sel', x === el)); onResize(); });

@@ -818,7 +818,51 @@ async function loadRealCharacter() {
   p.animate(0, 0, false);
   return p;
 }
-loadRealCharacter().then(r => { REAL = r; window.__real = !!r; }).catch(e => { console.error('3Dモデル読み込み失敗', e); window.__real = false; });
+// ================== 骨組み入りリアルキャラ（Mixamoで骨組み・動き付き） ==================
+async function loadRiggedCharacter() {
+  const bin = Uint8Array.from(atob(window.MODEL_GLB), ch => ch.charCodeAt(0)).buffer;
+  const gltf = await new Promise((res, rej) => new GLTFLoader().parse(bin, '', res, rej));
+  const tex = await new THREE.TextureLoader().loadAsync(window.MODEL_TEX);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const model = gltf.scene;
+  model.traverse(o => {
+    if (o.isMesh) {
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+      o.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.82, metalness: 0 }); o.castShadow = true; o.frustumCulled = false; }
+  });
+  model.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(model);
+  model.scale.multiplyScalar(1.6 / (bb.max.y - bb.min.y));
+  const group = new THREE.Group(); group.add(model);
+  const mixer = new THREE.AnimationMixer(model);
+  const A = {};
+  for (const c of gltf.animations) {
+    const a = mixer.clipAction(c); a.enabled = true; a.setEffectiveWeight(0); a.play(); A[c.name] = a;
+  }
+  A.defeat.setLoop(THREE.LoopOnce, 1); A.defeat.clampWhenFinished = true;
+  A.idle.setEffectiveWeight(1);
+  const p = { root: group, phase: 0, crouchT: 0, real: true, rigged: true, moveT: 0, defT: 0, defeated: false };
+  let wasDefeated = false;
+  p.animate = (dt, speed, crouch) => {
+    p.crouchT += ((crouch ? 1 : 0) - p.crouchT) * Math.min(1, dt * 8);
+    p.moveT += ((speed > 0.15 ? 1 : 0) - p.moveT) * Math.min(1, dt * 10);
+    if (p.defeated && !wasDefeated) { A.defeat.reset(); A.defeat.play(); }
+    wasDefeated = p.defeated;
+    p.defT += ((p.defeated ? 1 : 0) - p.defT) * Math.min(1, dt * 5);
+    const c = p.crouchT, m = p.moveT, k = 1 - p.defT;
+    A.idle.setEffectiveWeight((1 - c) * (1 - m) * k);
+    A.walk.setEffectiveWeight((1 - c) * m * k);
+    A.cidle.setEffectiveWeight(c * (1 - m) * k);
+    A.cwalk.setEffectiveWeight(c * m * k);
+    A.defeat.setEffectiveWeight(p.defT);
+    const ts = clamp(speed / 1.35, 0.7, 2.0);
+    A.walk.timeScale = ts; A.cwalk.timeScale = clamp(speed / 1.1, 0.7, 1.8);
+    mixer.update(dt);
+  };
+  p.animate(0, 0, false);
+  return p;
+}
+(window.MODEL_RIGGED ? loadRiggedCharacter() : loadRealCharacter()).then(r => { REAL = r; window.__real = !!r; }).catch(e => { console.error('3Dモデル読み込み失敗', e); window.__real = false; });
 
 // ================== 難易度 ==================
 const DIFFS = {
@@ -1157,7 +1201,7 @@ function startGame(c, sIdx = stageIdx) {
   if (sIdx !== stageIdx || !STAGE) buildStage(sIdx);
   if (pl) scene.remove(pl.root);
   pl = (c.glb && REAL) ? REAL : makePerson({ ...c, bag: true });
-  pl.crouchT = 0; camSnap = true;
+  pl.crouchT = 0; pl.defeated = false; pl.defT = 0; camSnap = true;
   $('vignette').style.boxShadow = 'none'; $('mission').classList.remove('alert');
   scene.add(pl.root);
   const st = STAGE.start;
@@ -1312,6 +1356,7 @@ function caught(b, line, delay = 0) {
   player.face = Math.atan2(b.z - player.z, b.x - player.x);
   setTimeout(() => showDialog(b.name, line), delay * 1000 + 600);
   setTimeout(() => showDialog(chara.name, '……はい。'), delay * 1000 + 3000);
+  setTimeout(() => { if (pl && state === 'caught') pl.defeated = true; }, delay * 1000 + 2600);
   setTimeout(() => {
     $('dialog').style.display = 'none';
     const [a, bb] = pick(FAIL_TEXTS);
@@ -1408,7 +1453,7 @@ function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (state === 'play') update(dt);
   else if (state === 'caught' || state === 'escape') {
-    if (pl) animatePerson(pl, dt, 0, false);
+    if (pl && (state === 'caught' || !exitTarget)) animatePerson(pl, dt, 0, false);
     for (const b of bosses) placeBoss(b, dt, 0);
     if (pl && state === 'caught') pl.root.rotation.y = Math.PI / 2 - player.face;
   }

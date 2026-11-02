@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>定時退社シミュレーター 3D</title>
+<title>定時退社シミュレーター</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: #0d0f12; color: #ecebe6; overflow: hidden; user-select: none; -webkit-user-select: none;
@@ -69,6 +69,15 @@
     border: 2px solid rgba(242,201,76,.6); color: #f2c94c; font-weight: 800; font-size: 13px; touch-action: none; font-family: inherit; }
   .tbtn.on { background: rgba(242,201,76,.6); color: #111; }
   #tSneak { right: 20px; bottom: 120px; } #tAct { right: 104px; bottom: 76px; display: none; }
+  .who { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 14px; text-align: left; }
+  .face.sm { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
+  .who .nm { font-size: 20px; font-weight: 900; } .who .dp { font-size: 12px; opacity: .85; margin-top: 4px; } .who b { color: #f2c94c; letter-spacing: 1px; }
+  .scards { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .scard { width: 250px; text-align: left; padding: 14px 16px; border-radius: 8px; cursor: pointer; background: #171b21; border: 2px solid rgba(255,255,255,.1); transition: border-color .12s, transform .12s; }
+  .scard:hover, .scard.sel { border-color: #f2c94c; transform: translateY(-2px); }
+  .scard .sfl { font-size: 11px; color: #f2c94c; letter-spacing: .1em; } .scard .snm { font-size: 19px; font-weight: 900; margin-top: 2px; } .scard .sds { font-size: 12px; opacity: .8; margin-top: 6px; line-height: 1.6; }
+  .qual { font: inherit; font-weight: 700; font-size: 13px; padding: 6px 16px; border-radius: 4px; cursor: pointer; background: transparent; color: #ecebe6; border: 1.5px solid rgba(255,255,255,.3); }
+  .qual.sel { background: #ecebe6; color: #111; }
 </style>
 </head>
 <body>
@@ -78,7 +87,7 @@
   <canvas id="mFace" width="80" height="80"></canvas>
   <div><div class="who" id="mWho">—</div><div class="title" id="mTitle">定時退社ミッション</div><div class="sub" id="mSub">上司に見つからずに会社を出る</div></div>
 </div>
-<div id="clock" class="hud panel"><div class="t" id="time">17:59</div><div class="loc" id="loc">本社・営業フロア</div><div class="goal">目標：会社の外へ</div></div>
+<div id="clock" class="hud panel"><div class="t" id="time">17:59</div><div class="loc" id="loc">本社・営業フロア</div><div class="goal" id="goal">目標：会社の外へ</div></div>
 <div id="mapWrap" class="hud"><div id="stLabel">未発見</div><canvas id="minimap" width="300" height="300"></canvas><div id="meter"><div id="meterFill"></div></div></div>
 <div id="hint" class="hud panel"><div class="chk"></div><span id="hintText">会社の外へ</span></div>
 <div id="dialog" class="hud panel"><div class="name" id="dName"></div><div class="line" id="dLine"></div></div>
@@ -90,8 +99,16 @@
 <script src="model.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
 <script type="module">
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // ================== 設定（名前やステータスはここで変える） ==================
 const PHOTOS = window.PHOTOS || {};
@@ -104,7 +121,14 @@ const BOSS_LINES = {
   '課長': ['あとでちょっといい？', '帰る前にさ、5分だけいいかな。'],
   '部長': ['この資料だけ見てくれる？5分で終わるから。', 'お、ちょうどいいところに。'],
   '次長': ['（タバコを消しながら）……君、ちょっと話そうか。', 'お疲れ。ところで来週の件だが。'],
+  '主任': ['あ、ちょうどよかった！この見積もり見てもらえます？', '今日って何時まで残れます？'],
   '本部長': ['（扉が開くと、本部長が乗っていた）おお、ちょうど話があったんだ。'],
+  '専務': ['君、営業の子だね。ちょっと役員会の資料を手伝ってくれないか。', 'ちょうどいい。少し話を聞かせてくれ。'],
+  '常務': ['（ガラス越しに手招きされた）……ちょっと入ってくれる？', 'あ、君！この会議に出てくれないか。'],
+  '秘書': ['あ、お疲れ様です。専務がお呼びです。', 'すみません、社長が少しお話があると。'],
+  '社長': ['君、ちょっといいかね。', '若い人の意見を聞きたくてね。少し時間あるかな。'],
+  '室長': ['ちょうどいい、この資料の数字を確認してほしいんだ。'],
+  '警備員': ['お疲れ様です。……あ、部長が探してましたよ。呼びますね。', '入館証の確認を……あれ、部長がお呼びです。'],
 };
 const FAIL_TEXTS = [
   ['「5分だけ」から1時間経過', '追加クエスト：終わらない残業'],
@@ -112,84 +136,244 @@ const FAIL_TEXTS = [
   ['気づけば終電の時間', '追加クエスト：明日の資料'],
 ];
 
-// ================== レンダラー・シーン ==================
+// ================== レンダラー・ポストエフェクト ==================
 const view = document.getElementById('view');
-const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas: view, antialias: true, powerPreference: 'high-performance' });
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#202226');
-scene.fog = new THREE.Fog('#3a3633', 16, 46);
-const camera = new THREE.PerspectiveCamera(62, 1, 0.05, 120);
-function onResize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+scene.background = new THREE.Color('#1c1d21');
+const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 160);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.45;
+
+let quality = localStorage.getItem('teiji-quality') || 'high';
+let composer = null, gtao = null;
+function setupComposer() {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  try {
+    gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+    gtao.updateGtaoMaterial?.({ radius: 0.55, distanceExponent: 1.4, thickness: 1.2, scale: 1.0, samples: 12 });
+    gtao.blendIntensity = 0.9;
+    composer.addPass(gtao);
+  } catch (e) { console.warn('AO無効', e); }
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.5, 0.9));
+  composer.addPass(new OutputPass());
+}
+function onResize() {
+  const pr = quality === 'high' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 1);
+  renderer.setPixelRatio(pr);
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  if (composer) { composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
+}
+setupComposer();
 addEventListener('resize', onResize); onResize();
+function renderFrame() { if (quality === 'high' && composer) composer.render(); else renderer.render(scene, camera); }
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const rnd = (a, b) => a + Math.random() * (b - a);
 const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.82, metalness: 0, ...o });
 
-function canvasTex(w, h, draw) {
+function canvasTex(w, h, draw, repeat) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+  return t;
+}
+function noise(g, w, h, n, base, spread, alpha = 0.25, size = 1.4) {
+  for (let i = 0; i < n; i++) { const v = base + (Math.random() - 0.5) * spread | 0; g.fillStyle = `rgba(${v},${v},${v + 4},${alpha})`; g.fillRect(Math.random() * w, Math.random() * h, size, size); }
 }
 
-// ================== 照明 ==================
-scene.add(new THREE.HemisphereLight('#fff8ee', '#4b4743', 1.25));
-const sun = new THREE.DirectionalLight('#ffb070', 2.4);
-sun.position.set(10, 7, -12); sun.target.position.set(16, 0, 12);
-sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 70 });
-sun.shadow.bias = -0.0008;
-scene.add(sun, sun.target);
-for (const [x, z] of [[7, 6], [7, 17], [17, 6], [17, 17], [25, 11], [34, 6], [34, 19], [38.5, 5.5], [38.5, 22.2]]) {
-  const p = new THREE.PointLight('#f2f5ff', 5, 13, 1.6); p.position.set(x, 2.5, z); scene.add(p);
-}
-
-// ================== マップ（障害物） ==================
-// kind: wall（壁・常に視線を遮る） tall（棚・柱・植物） desk（机：しゃがむと隠れられる） chair（通れないが視線は通す）
-const OBST = [];
-const box = (x0, z0, x1, z1, h, kind) => { const b = { x0, z0, x1, z1, h, kind }; OBST.push(b); return b; };
-const OFFICE_W = 28, MAP_W = 40, MAP_D = 26, CEIL = 2.7;
-
-// 外壁・仕切り
-box(-0.3, -0.3, MAP_W + 0.3, 0, CEIL, 'wall');
-box(-0.3, MAP_D, MAP_W + 0.3, MAP_D + 0.3, CEIL, 'wall');
-box(-0.3, 0, 0, MAP_D, CEIL, 'wall');
-box(MAP_W, 0, MAP_W + 0.3, MAP_D, CEIL, 'wall');
-box(OFFICE_W, 0, OFFICE_W + 0.3, 11, CEIL, 'wall');
-box(OFFICE_W, 13, OFFICE_W + 0.3, MAP_D, CEIL, 'wall');
-// 会議室（ホール中央）
-box(31, 10, 36, 16, CEIL, 'wall');
-
-// 島型の机
-const ISL_X = [2.5, 10.5, 18.5], ISL_Z = [3.5, 8.5, 13.5, 18.5], ISL_W = 5.6, ISL_D = 1.6;
-const seats = [];
-for (const ix of ISL_X) for (const iz of ISL_Z) {
-  box(ix, iz, ix + ISL_W, iz + ISL_D, 0.74, 'desk');
-  for (let i = 0; i < 4; i++) {
-    const cx = ix + 0.7 + i * 1.4;
-    seats.push({ x: cx, z: iz - 0.45, face: Math.PI / 2, mz: iz + 0.5 });       // 北側の席（南向き）
-    seats.push({ x: cx, z: iz + ISL_D + 0.45, face: -Math.PI / 2, mz: iz + ISL_D - 0.5 }); // 南側の席（北向き）
+// ================== テクスチャ（すべて手続き生成） ==================
+const TX = {};
+TX.carpet = canvasTex(512, 512, (g, w, h) => { // 50cmのタイルカーペット 2×2枚
+  for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) {
+    const x0 = tx * 256, y0 = ty * 256, tone = 88 + Math.random() * 10;
+    g.fillStyle = `rgb(${tone},${tone + 2},${tone + 8})`; g.fillRect(x0, y0, 256, 256);
+    const horiz = (tx + ty) % 2 === 0;
+    for (let i = 0; i < 2600; i++) {
+      const v = tone + (Math.random() - 0.5) * 46 | 0; g.strokeStyle = `rgba(${v},${v + 2},${v + 8},.55)`; g.lineWidth = 1;
+      const x = x0 + Math.random() * 256, y = y0 + Math.random() * 256; g.beginPath();
+      if (horiz) { g.moveTo(x, y); g.lineTo(x + 3 + Math.random() * 4, y + (Math.random() - .5)); } else { g.moveTo(x, y); g.lineTo(x + (Math.random() - .5), y + 3 + Math.random() * 4); }
+      g.stroke();
+    }
+    g.strokeStyle = 'rgba(30,32,38,.35)'; g.lineWidth = 2; g.strokeRect(x0 + 1, y0 + 1, 254, 254);
   }
+}, true);
+TX.wood = canvasTex(1024, 256, (g, w, h) => {
+  g.fillStyle = '#4a3326'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 160; i++) {
+    const y = Math.random() * h, c = 50 + Math.random() * 40 | 0;
+    g.strokeStyle = `rgba(${c + 20},${c},${c - 15},.35)`; g.lineWidth = 0.6 + Math.random() * 2.2; g.beginPath(); g.moveTo(0, y);
+    for (let x = 0; x <= w; x += 32) g.lineTo(x, y + Math.sin(x / 90 + i) * 3 + (Math.random() - .5) * 1.5); g.stroke();
+  }
+  noise(g, w, h, 6000, 60, 40, .12);
+}, true);
+TX.lightWood = canvasTex(1024, 256, (g, w, h) => {
+  g.fillStyle = '#b48a62'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 140; i++) {
+    const y = Math.random() * h, c = 130 + Math.random() * 50 | 0;
+    g.strokeStyle = `rgba(${c},${c - 30},${c - 60},.35)`; g.lineWidth = 0.6 + Math.random() * 2; g.beginPath(); g.moveTo(0, y);
+    for (let x = 0; x <= w; x += 32) g.lineTo(x, y + Math.sin(x / 120 + i) * 2.5); g.stroke();
+  }
+}, true);
+TX.paint = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#e6e3dc'; g.fillRect(0, 0, w, h); noise(g, w, h, 5000, 215, 30, .18); }, true);
+TX.ceiling = canvasTex(512, 512, (g, w, h) => { // 60cmの岩綿吸音板
+  g.fillStyle = '#e4e3df'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(120,118,112,${Math.random() * .35})`; g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2.2, 1); }
+  g.strokeStyle = '#b9b8b2'; g.lineWidth = 6; g.strokeRect(0, 0, w, h);
+}, true);
+TX.stone = canvasTex(512, 512, (g, w, h) => { // ベージュの石タイル
+  for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) {
+    const c = 196 + Math.random() * 14; g.fillStyle = `rgb(${c},${c - 8},${c - 20})`; g.fillRect(tx * 256, ty * 256, 256, 256);
+  }
+  noise(g, w, h, 12000, 190, 40, .2);
+  g.strokeStyle = 'rgba(120,110,95,.6)'; g.lineWidth = 3; for (let i = 0; i <= 2; i++) { g.beginPath(); g.moveTo(i * 256, 0); g.lineTo(i * 256, h); g.stroke(); g.beginPath(); g.moveTo(0, i * 256); g.lineTo(w, i * 256); g.stroke(); }
+}, true);
+TX.marble = canvasTex(1024, 1024, (g, w, h) => {
+  g.fillStyle = '#ecebe7'; g.fillRect(0, 0, w, h); noise(g, w, h, 20000, 225, 30, .25, 2);
+  for (let i = 0; i < 26; i++) {
+    let x = Math.random() * w, y = Math.random() * h; const a0 = Math.random() * 6.28;
+    g.strokeStyle = `rgba(${110 + Math.random() * 60},${110 + Math.random() * 60},${120 + Math.random() * 60},${.15 + Math.random() * .3})`;
+    g.lineWidth = .6 + Math.random() * 2.5; g.beginPath(); g.moveTo(x, y);
+    for (let k = 0; k < 40; k++) { x += Math.cos(a0 + Math.sin(k / 4) * .8) * 18; y += Math.sin(a0 + Math.sin(k / 4) * .8) * 18; g.lineTo(x, y); } g.stroke();
+  }
+  g.strokeStyle = 'rgba(160,155,148,.5)'; g.lineWidth = 2; g.strokeRect(0, 0, w, h); g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, h); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+}, true);
+TX.keyboard = canvasTex(256, 96, (g, w, h) => {
+  g.fillStyle = '#222326'; g.fillRect(0, 0, w, h);
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 15; c++) { g.fillStyle = '#3a3b40'; g.fillRect(6 + c * 16.5, 6 + r * 17, 14, 14); }
+});
+TX.drawer = canvasTex(128, 192, (g, w, h) => {
+  g.fillStyle = '#d9d7d1'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#a9a7a0'; g.lineWidth = 2; for (const y of [56, 112]) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  g.fillStyle = '#7d7c78'; for (const y of [28, 84, 150]) g.fillRect(w / 2 - 20, y, 40, 5);
+});
+TX.locker = canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = '#cfd1d0'; g.fillRect(0, 0, w, h);
+  for (let i = 1; i < 6; i++) { g.fillStyle = '#9fa2a2'; g.fillRect(i * w / 6 - 1, 0, 2, h); }
+  for (let i = 0; i < 6; i++) { g.fillStyle = '#6f7272'; g.fillRect(i * w / 6 + w / 6 - 16, h / 2 - 12, 5, 24); g.fillStyle = '#e8e8e6'; g.fillRect(i * w / 6 + 10, 14, 30, 10); }
+});
+TX.binders = canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = '#2b2a28'; g.fillRect(0, 0, w, h);
+  for (let row = 0; row < 3; row++) { let x = 4; while (x < w - 10) { const bw = 12 + Math.random() * 14; g.fillStyle = pick(['#2a4a7a', '#c3c0b5', '#7a2a2a', '#3d6b4a', '#e6e2d6', '#1f1f22', '#b8892f']); g.fillRect(x, row * 85 + 6, bw - 2, 76); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(x + 2, row * 85 + 16, bw - 6, 10); x += bw; } }
+});
+TX.screens = [
+  canvasTex(512, 288, (g, w, h) => { // 表計算
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.fillStyle = '#1e7145'; g.fillRect(0, 0, w, 26); g.fillStyle = '#f3f3f3'; g.fillRect(0, 26, w, 22);
+    g.strokeStyle = '#d8d8d8'; for (let x = 40; x < w; x += 62) { g.beginPath(); g.moveTo(x, 48); g.lineTo(x, h); g.stroke(); } for (let y = 48; y < h; y += 18) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+    g.fillStyle = '#333'; g.font = '11px sans-serif'; for (let y = 62; y < h; y += 18) for (let x = 46; x < w; x += 62) if (Math.random() < .8) g.fillText((Math.random() * 99999 | 0).toLocaleString(), x, y);
+  }),
+  canvasTex(512, 288, (g, w, h) => { // メール
+    g.fillStyle = '#fbfbfd'; g.fillRect(0, 0, w, h); g.fillStyle = '#2e5ea8'; g.fillRect(0, 0, w, 30); g.fillStyle = '#eef1f6'; g.fillRect(0, 30, 130, h);
+    for (let y = 40; y < h; y += 30) { g.fillStyle = '#222'; g.fillRect(140, y, 120 + Math.random() * 140, 7); g.fillStyle = '#888'; g.fillRect(140, y + 12, 200 + Math.random() * 120, 5); }
+    for (let y = 44; y < 200; y += 22) { g.fillStyle = '#9aa3b0'; g.fillRect(14, y, 90, 7); }
+  }),
+  canvasTex(512, 288, (g, w, h) => { // グラフ
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.fillStyle = '#c0392b'; g.fillRect(0, 0, w, 24);
+    for (let i = 0; i < 10; i++) { const bh = 30 + Math.random() * 170; g.fillStyle = i % 3 ? '#4a7fc1' : '#f0a43a'; g.fillRect(40 + i * 44, 260 - bh, 28, bh); }
+    g.strokeStyle = '#555'; g.beginPath(); g.moveTo(30, 40); g.lineTo(30, 262); g.lineTo(w - 10, 262); g.stroke();
+  }),
+  canvasTex(512, 288, (g, w, h) => { // コード
+    g.fillStyle = '#1e1f24'; g.fillRect(0, 0, w, h);
+    for (let y = 16; y < h; y += 14) { let x = 12 + (Math.random() * 4 | 0) * 16; for (let k = 0; k < 4; k++) { const lw = 20 + Math.random() * 70; g.fillStyle = pick(['#c678dd', '#98c379', '#61afef', '#e5c07b', '#abb2bf']); g.fillRect(x, y, lw, 6); x += lw + 8; } }
+  }),
+  canvasTex(512, 288, (g, w, h) => { // 社内システム
+    g.fillStyle = '#f4f6f9'; g.fillRect(0, 0, w, h); g.fillStyle = '#34495e'; g.fillRect(0, 0, 90, h);
+    for (let i = 0; i < 6; i++) { g.fillStyle = '#ffffff'; g.fillRect(104 + (i % 3) * 136, 20 + (i / 3 | 0) * 130, 124, 116); g.fillStyle = pick(['#27ae60', '#2980b9', '#e67e22']); g.fillRect(114 + (i % 3) * 136, 34 + (i / 3 | 0) * 130, 60, 10); g.fillStyle = '#333'; g.font = 'bold 22px sans-serif'; g.fillText((Math.random() * 999 | 0) + '件', 114 + (i % 3) * 136, 80 + (i / 3 | 0) * 130); }
+  }),
+];
+TX.leaf = canvasTex(128, 256, (g, w, h) => {
+  g.clearRect(0, 0, w, h); const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, '#2f5d2a'); gr.addColorStop(.5, '#4f8a3c'); gr.addColorStop(1, '#2c5527');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(w / 2, 4); g.bezierCurveTo(w, h * .3, w * .95, h * .75, w / 2, h - 4); g.bezierCurveTo(w * .05, h * .75, 0, h * .3, w / 2, 4); g.fill();
+  g.strokeStyle = 'rgba(200,230,170,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(w / 2, 8); g.lineTo(w / 2, h - 8); g.stroke();
+});
+TX.frost = canvasTex(256, 64, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(0, 10, w, 44); g.clearRect(0, 22, w, 2); }, true);
+function cityTex(warm = true) {
+  return canvasTex(2048, 512, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h);
+    if (warm) { gr.addColorStop(0, '#5b6c95'); gr.addColorStop(.42, '#d9906a'); gr.addColorStop(.7, '#ffc98a'); gr.addColorStop(1, '#ffe0a8'); }
+    else { gr.addColorStop(0, '#2c3a5c'); gr.addColorStop(.6, '#8a7aa0'); gr.addColorStop(1, '#e8b48a'); }
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,236,190,.95)'; g.beginPath(); g.arc(w * .63, h * .66, 26, 0, 7); g.fill();
+    for (let layer = 0; layer < 3; layer++) {
+      for (let x = -20; x < w;) {
+        const bw = 50 + Math.random() * 150, bh = (90 + Math.random() * 230) * (1 - layer * .22), sh = 40 + layer * 18;
+        g.fillStyle = `rgb(${sh + 10},${sh + 6},${sh + 22})`; g.fillRect(x, h - bh, bw, bh);
+        for (let wy = h - bh + 8; wy < h - 6; wy += 11) for (let wx = x + 5; wx < x + bw - 6; wx += 9) if (Math.random() < .28) { g.fillStyle = `rgba(255,${200 + Math.random() * 40 | 0},140,${.5 + layer * .2})`; g.fillRect(wx, wy, 5, 6); }
+        x += bw + 3 + Math.random() * 10;
+      }
+    }
+  });
 }
-for (const s of seats) box(s.x - 0.25, s.z - 0.25, s.x + 0.25, s.z + 0.25, 0.9, 'chair');
-// 課長の席
-box(12, 23.3, 14.6, 24.1, 0.74, 'desk');
-// 柱・棚・植物・ホワイトボード
-box(4.9, 11.4, 5.7, 12.2, CEIL, 'tall');
-box(20.9, 11.4, 21.7, 12.2, CEIL, 'tall');
-box(12, 25.4, 16.5, 26, 1.8, 'tall');
-box(25.4, 15.5, 27.6, 15.7, 1.9, 'tall');
-const PLANTS = [[27.2, 1.0], [0.9, 12.6], [27.2, 24.8], [29.2, 1.0], [39.0, 10.0], [29.2, 24.8]];
-for (const [x, z] of PLANTS) box(x - 0.35, z - 0.35, x + 0.35, z + 0.35, 1.7, 'tall');
-// ホールのソファ（低い）
-box(32.5, 20.6, 35.5, 21.5, 0.8, 'desk');
+TX.city = cityTex(true);
+function textTex(lines, w, h, bg, fg, font, lh = 1.25) {
+  return canvasTex(w, h, (g) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const fs = parseInt(font.match(/(\d+)px/)[1]) * lh; lines.forEach((ln, i) => g.fillText(ln, w / 2, h / 2 + (i - (lines.length - 1) / 2) * fs)); });
+}
+TX.whiteboard = canvasTex(1024, 512, (g, w, h) => {
+  g.fillStyle = '#f8f8f6'; g.fillRect(0, 0, w, h); g.font = 'bold 44px sans-serif'; g.fillStyle = '#1b3f8b'; g.fillText('今週の目標　契約 10件！', 40, 70);
+  g.font = '32px sans-serif'; g.fillStyle = '#222'; ['・月曜 9:00 定例', '・A社 見積もり提出（水）', '・B社 訪問 14:00', '・ノー残業デー（水）'].forEach((t, i) => g.fillText(t, 50, 140 + i * 52));
+  g.strokeStyle = '#c0392b'; g.lineWidth = 5; g.beginPath(); g.ellipse(250, 300, 210, 34, 0, 0, 7); g.stroke();
+  g.strokeStyle = '#2b2b2b'; g.lineWidth = 3; g.beginPath(); g.moveTo(640, 420); g.lineTo(640, 150); g.lineTo(960, 150); g.stroke();
+  for (let i = 0; i < 5; i++) { g.fillStyle = '#2e86c1'; g.fillRect(670 + i * 58, 420 - (40 + i * 45), 36, 40 + i * 45); }
+});
 
+// ================== 共通マテリアル ==================
+const MAT = {
+  carpet: (rx, rz) => { const t = TX.carpet.clone(); t.needsUpdate = true; t.repeat.set(rx, rz); return M('#ffffff', { map: t, roughness: 1, bumpMap: t, bumpScale: 0.6 }); },
+  tiled: (tex, rx, rz, o = {}) => { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(rx, rz); return M('#ffffff', { map: t, ...o }); },
+  paint: M('#ffffff', { map: TX.paint, roughness: 0.92 }),
+  paint2: M('#d8d2c7', { roughness: 0.9 }),
+  base: M('#3b3a38', { roughness: 0.6 }),
+  wood: M('#ffffff', { map: TX.wood, roughness: 0.5 }),
+  lightWood: M('#ffffff', { map: TX.lightWood, roughness: 0.55 }),
+  white: M('#ecebe7', { roughness: 0.45 }),
+  chrome: M('#d0d3d6', { metalness: 1, roughness: 0.22 }),
+  alu: M('#b9bdc2', { metalness: 0.85, roughness: 0.35 }),
+  darkMetal: M('#3d3f43', { metalness: 0.6, roughness: 0.45 }),
+  black: M('#18191c', { roughness: 0.45 }),
+  plastic: M('#2a2b2f', { roughness: 0.55 }),
+  fabOrange: M('#c75a2a', { roughness: 0.95 }),
+  fabBlack: M('#1e1f22', { roughness: 0.95 }),
+  fabGray: M('#5d6168', { roughness: 0.95 }),
+  fabNavy: M('#2c3a52', { roughness: 0.95 }),
+  leather: M('#2a211c', { roughness: 0.55 }),
+  steel: M('#d3d5d4', { metalness: 0.25, roughness: 0.5 }),
+  drawer: M('#ffffff', { map: TX.drawer, roughness: 0.5 }),
+  locker: M('#ffffff', { map: TX.locker, roughness: 0.5, metalness: 0.2 }),
+  binders: M('#ffffff', { map: TX.binders, roughness: 0.7 }),
+  keyboard: M('#ffffff', { map: TX.keyboard, roughness: 0.6 }),
+  paper: M('#f6f5f0', { roughness: 0.9 }),
+  pot: M('#e9e6df', { roughness: 0.6 }),
+  soil: M('#3a2c22', { roughness: 1 }),
+  leaf: new THREE.MeshStandardMaterial({ map: TX.leaf, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.75 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: '#dff0f2', metalness: 0, roughness: 0.04, transparent: true, opacity: 0.16, envMapIntensity: 1.6, depthWrite: false }),
+  frost: new THREE.MeshStandardMaterial({ map: TX.frost, transparent: true, depthWrite: false, roughness: 0.6 }),
+  lightPanel: new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#f6f8ff', emissiveIntensity: 2.4 }),
+  downlight: new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#fff4e2', emissiveIntensity: 3.2 }),
+  screens: TX.screens.map(t => new THREE.MeshBasicMaterial({ map: t, toneMapped: true })),
+  mug: [M('#f2f0ea', { roughness: .3 }), M('#2b4c7e', { roughness: .3 }), M('#b03a2e', { roughness: .3 })],
+  binYellow: M('#d9c62a', { roughness: .5 }), binBrown: M('#4a3426', { roughness: .5 }),
+  water: new THREE.MeshPhysicalMaterial({ color: '#8fc6f2', transparent: true, opacity: 0.55, roughness: 0.05 }),
+  marbleTop: M('#f1efe9', { roughness: 0.18 }),
+  sign: (lines, w, h, bg, fg, font) => new THREE.MeshBasicMaterial({ map: textTex(lines, w, h, bg, fg, font) }),
+};
+
+// ================== ステージの入れ物・当たり判定 ==================
+let STAGE = null;          // 今のステージ定義
+let G = new THREE.Group(); // ステージの見た目
+scene.add(G);
+let OBST = [];             // 当たり判定 {x0,z0,x1,z1,h,kind}  kind: wall / tall / desk / glass / chair
+const box = (x0, z0, x1, z1, h, kind) => { const b = { x0: Math.min(x0, x1), z0: Math.min(z0, z1), x1: Math.max(x0, x1), z1: Math.max(z0, z1), h, kind }; OBST.push(b); return b; };
 const blocksSight = (b, crouch) => b.kind === 'wall' || b.kind === 'tall' || (crouch && b.kind === 'desk');
 function rayBox(b, ox, oz, dx, dz) {
   let tmin = -Infinity, tmax = Infinity;
@@ -210,13 +394,17 @@ function rayDist(ox, oz, a, maxD, filter) {
   for (const b of OBST) if (filter(b)) { const t = rayBox(b, ox, oz, dx, dz); if (t < d) d = t; }
   return d;
 }
+function hitsAny(x, z, r) {
+  for (const b of OBST) { const cx = clamp(x, b.x0, b.x1), cz = clamp(z, b.z0, b.z1); if ((x - cx) ** 2 + (z - cz) ** 2 < r * r) return true; }
+  return false;
+}
 function resolveCollision(p, r) {
   for (let k = 0; k < 2; k++) for (const b of OBST) {
     const cx = clamp(p.x, b.x0, b.x1), cz = clamp(p.z, b.z0, b.z1);
     const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
     if (d2 < r * r) {
       if (d2 > 1e-8) { const d = Math.sqrt(d2); p.x += dx / d * (r - d); p.z += dz / d * (r - d); }
-      else { // 中に入り込んだら一番近い辺へ押し出す
+      else {
         const opts = [[b.x0 - r - p.x, 0], [b.x1 + r - p.x, 0], [0, b.z0 - r - p.z], [0, b.z1 + r - p.z]];
         opts.sort((u, v) => Math.abs(u[0] + u[1]) - Math.abs(v[0] + v[1])); p.x += opts[0][0]; p.z += opts[0][1];
       }
@@ -224,152 +412,259 @@ function resolveCollision(p, r) {
   }
 }
 
-// ================== 見た目（オフィス） ==================
-const carpetTex = canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = '#5d6067'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 9000; i++) { const v = 80 + Math.random() * 40 | 0; g.fillStyle = `rgba(${v},${v + 2},${v + 8},.35)`; g.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); }
-  g.strokeStyle = 'rgba(0,0,0,.12)'; g.lineWidth = 2; g.strokeRect(0, 0, w, h);
-});
-carpetTex.wrapS = carpetTex.wrapT = THREE.RepeatWrapping; carpetTex.repeat.set(OFFICE_W / 1.2, MAP_D / 1.2);
-const officeFloor = new THREE.Mesh(new THREE.PlaneGeometry(OFFICE_W, MAP_D), M('#ffffff', { map: carpetTex, roughness: 1 }));
-officeFloor.rotation.x = -Math.PI / 2; officeFloor.position.set(OFFICE_W / 2, 0, MAP_D / 2); officeFloor.receiveShadow = true; scene.add(officeFloor);
-const tileTex = canvasTex(256, 256, (g, w, h) => {
-  g.fillStyle = '#c9c2b6'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(80,70,60,.35)'; g.lineWidth = 3;
-  g.strokeRect(0, 0, w / 2, h / 2); g.strokeRect(w / 2, 0, w / 2, h / 2); g.strokeRect(0, h / 2, w / 2, h / 2); g.strokeRect(w / 2, h / 2, w / 2, h / 2);
-});
-tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping; tileTex.repeat.set(6, 13);
-const hallFloor = new THREE.Mesh(new THREE.PlaneGeometry(MAP_W - OFFICE_W, MAP_D), M('#ffffff', { map: tileTex, roughness: 0.45 }));
-hallFloor.rotation.x = -Math.PI / 2; hallFloor.position.set((MAP_W + OFFICE_W) / 2, 0.001, MAP_D / 2); hallFloor.receiveShadow = true; scene.add(hallFloor);
-const ceil = new THREE.Mesh(new THREE.PlaneGeometry(MAP_W, MAP_D), M('#d9dad6', { side: THREE.DoubleSide }));
-ceil.rotation.x = Math.PI / 2; ceil.position.set(MAP_W / 2, CEIL, MAP_D / 2); scene.add(ceil);
-// 蛍光灯
-const lightMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-for (let x = 2; x < MAP_W; x += 4) for (let z = 2.5; z < MAP_D; z += 4.2) {
-  const l = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.04, 0.22), lightMat); l.position.set(x, CEIL - 0.03, z); scene.add(l);
-}
-
-// 壁（北側の窓は別に描く）
-const wallMat = M('#e2dfd8'), hallWallMat = M('#cdc6bb');
-function wallMesh(x0, z0, x1, z1, y0, y1, mat) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat);
-  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.receiveShadow = true; m.castShadow = true; scene.add(m); return m;
-}
-// 北壁：オフィスは腰壁＋窓＋垂れ壁、ホールは普通の壁
-wallMesh(-0.3, -0.3, OFFICE_W, 0, 0, 0.85, wallMat);
-wallMesh(-0.3, -0.3, OFFICE_W, 0, 2.3, CEIL, wallMat);
-wallMesh(OFFICE_W, -0.3, MAP_W + 0.3, 0, 0, CEIL, hallWallMat);
-const skyTex = canvasTex(2048, 256, (g, w, h) => {
-  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#6f7fa6'); gr.addColorStop(0.45, '#f0a868'); gr.addColorStop(1, '#ffd79a');
-  g.fillStyle = gr; g.fillRect(0, 0, w, h);
-  g.fillStyle = 'rgba(255,240,200,.9)'; g.beginPath(); g.arc(w * 0.62, h * 0.78, 34, 0, Math.PI * 2); g.fill();
-  for (let x = 0; x < w;) { const bw = 40 + Math.random() * 120, bh = 50 + Math.random() * 170; g.fillStyle = `rgb(${50 + Math.random() * 20},${48 + Math.random() * 15},${62 + Math.random() * 20})`;
-    g.fillRect(x, h - bh, bw, bh); g.fillStyle = 'rgba(255,214,140,.7)';
-    for (let wy = h - bh + 8; wy < h - 6; wy += 12) for (let wx = x + 5; wx < x + bw - 6; wx += 10) if (Math.random() < .3) g.fillRect(wx, wy, 5, 6);
-    x += bw + 4; }
-});
-const win = new THREE.Mesh(new THREE.PlaneGeometry(OFFICE_W, 1.45), new THREE.MeshBasicMaterial({ map: skyTex, fog: false }));
-win.position.set(OFFICE_W / 2, 1.575, -0.15); scene.add(win);
-for (let x = 0; x <= OFFICE_W; x += 2) wallMesh(x - 0.05, -0.2, x + 0.05, 0, 0.85, 2.3, M('#9a9a98'));
-// 窓から差し込む夕日の色
-const sunGlow = new THREE.Mesh(new THREE.PlaneGeometry(OFFICE_W, 6), new THREE.MeshBasicMaterial({ color: '#ffb36b', transparent: true, opacity: 0.09, depthWrite: false }));
-sunGlow.rotation.x = -Math.PI / 2; sunGlow.position.set(OFFICE_W / 2, 0.01, 3); scene.add(sunGlow);
-// 南・西・東・仕切り
-wallMesh(-0.3, MAP_D, MAP_W + 0.3, MAP_D + 0.3, 0, CEIL, wallMat);
-wallMesh(-0.3, 0, 0, MAP_D, 0, CEIL, wallMat);
-wallMesh(OFFICE_W, 0, OFFICE_W + 0.3, 11, 0, CEIL, wallMat);
-wallMesh(OFFICE_W, 13, OFFICE_W + 0.3, MAP_D, 0, CEIL, wallMat);
-wallMesh(OFFICE_W, 11, OFFICE_W + 0.3, 13, 2.2, CEIL, wallMat);
-// 東壁（エレベーター2基と非常階段の扉の穴をあける）
-const ELEV = [{ z: 4.0 }, { z: 7.0 }];
-const STAIRS = { z0: 21.5, z1: 23.0 };
-const eastCuts = [[0, 3.45], [4.55, 6.45], [7.55, 21.5], [23.0, MAP_D]];
-for (const [z0, z1] of eastCuts) wallMesh(MAP_W, z0, MAP_W + 0.3, z1, 0, CEIL, hallWallMat);
-for (const e of ELEV) wallMesh(MAP_W, e.z - 0.55, MAP_W + 0.3, e.z + 0.55, 2.15, CEIL, hallWallMat);
-wallMesh(MAP_W, STAIRS.z0, MAP_W + 0.3, STAIRS.z1, 2.1, CEIL, hallWallMat);
-// 会議室
-const meetTex = canvasTex(512, 256, (g, w, h) => {
-  g.fillStyle = '#b7bec4'; g.fillRect(0, 0, w, h);
-  for (let y = 10; y < h; y += 9) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, y, w, 3); }
-  g.fillStyle = '#2b3036'; g.fillRect(w / 2 - 70, 20, 140, 40); g.fillStyle = '#fff'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.fillText('会議室 A', w / 2, 50);
-});
-const meet = new THREE.Mesh(new THREE.BoxGeometry(5, CEIL, 6), M('#ffffff', { map: meetTex }));
-meet.position.set(33.5, CEIL / 2, 13); meet.castShadow = meet.receiveShadow = true; scene.add(meet);
-
-// 机（天板＋幕板）とモニター・椅子（インスタンス）
-const deskTop = M('#3f2d22', { roughness: 0.6 }), deskBody = M('#2d2420');
-for (const b of OBST.filter(o => o.kind === 'desk' && o.x1 - o.x0 > 2 && o.z1 - o.z0 < 2)) {
-  if (b.x0 >= 32) continue; // ソファは別
-  const top = new THREE.Mesh(new THREE.BoxGeometry(b.x1 - b.x0, 0.04, b.z1 - b.z0), deskTop);
-  top.position.set((b.x0 + b.x1) / 2, 0.72, (b.z0 + b.z1) / 2); top.castShadow = top.receiveShadow = true; scene.add(top);
-  const body = new THREE.Mesh(new THREE.BoxGeometry(b.x1 - b.x0 - 0.1, 0.62, 0.1), deskBody);
-  body.position.set((b.x0 + b.x1) / 2, 0.36, (b.z0 + b.z1) / 2); body.castShadow = true; scene.add(body);
-  for (const xx of [b.x0 + 0.1, b.x1 - 0.1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.7, b.z1 - b.z0 - 0.1), deskBody); leg.position.set(xx, 0.35, (b.z0 + b.z1) / 2); scene.add(leg); }
-}
-const sofa = new THREE.Mesh(new THREE.BoxGeometry(3, 0.8, 0.9), M('#3d4a57')); sofa.position.set(34, 0.4, 21.05); sofa.castShadow = true; scene.add(sofa);
-const dummy = new THREE.Object3D();
-const monGeo = new THREE.BoxGeometry(0.56, 0.34, 0.03), scrGeo = new THREE.PlaneGeometry(0.52, 0.3);
-const monMesh = new THREE.InstancedMesh(monGeo, M('#15171a', { roughness: 0.4 }), seats.length + 1);
-const scrMesh = new THREE.InstancedMesh(scrGeo, new THREE.MeshBasicMaterial({ color: '#cfe0f5' }), seats.length + 1);
-const seatGeo = new THREE.BoxGeometry(0.48, 0.08, 0.46), backGeo = new THREE.BoxGeometry(0.46, 0.5, 0.06), poleGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.42);
-const seatMesh = new THREE.InstancedMesh(seatGeo, M('#d4632a'), seats.length), backMesh = new THREE.InstancedMesh(backGeo, M('#1d1e21'), seats.length);
-const poleMesh = new THREE.InstancedMesh(poleGeo, M('#8a8d92', { metalness: .6, roughness: .4 }), seats.length);
-seats.forEach((s, i) => {
-  const dirZ = Math.sin(s.face); // 席から机への向き（+1=南へ / -1=北へ）
-  dummy.position.set(s.x, 0.98, s.mz); dummy.rotation.set(0, dirZ > 0 ? Math.PI : 0, 0); dummy.updateMatrix(); monMesh.setMatrixAt(i, dummy.matrix);
-  dummy.position.z = s.mz - dirZ * 0.017; dummy.updateMatrix(); scrMesh.setMatrixAt(i, dummy.matrix);
-  const back = -dirZ; // 背もたれは机と反対側
-  dummy.rotation.set(0, (Math.random() - 0.5) * 0.5, 0);
-  dummy.position.set(s.x, 0.47, s.z); dummy.updateMatrix(); seatMesh.setMatrixAt(i, dummy.matrix);
-  dummy.position.set(s.x, 0.78, s.z + back * 0.24); dummy.updateMatrix(); backMesh.setMatrixAt(i, dummy.matrix);
-  dummy.position.set(s.x, 0.22, s.z); dummy.updateMatrix(); poleMesh.setMatrixAt(i, dummy.matrix);
-});
-monMesh.count = scrMesh.count = seats.length;
-for (const m of [monMesh, seatMesh, backMesh, poleMesh]) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
-scene.add(scrMesh);
-// 紙の山・小物
-const paper = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 0.08, 0.32), M('#f3f1ea'), 30);
-for (let i = 0; i < 30; i++) { const s = seats[(i * 7) % seats.length]; dummy.position.set(s.x + 0.38, 0.78, s.mz); dummy.rotation.set(0, Math.random(), 0); dummy.updateMatrix(); paper.setMatrixAt(i, dummy.matrix); }
-scene.add(paper);
-// 柱・棚・ホワイトボード・植物
-for (const b of OBST.filter(o => o.kind === 'tall')) {
-  const w = b.x1 - b.x0, d = b.z1 - b.z0;
-  if (PLANTS.some(([x, z]) => Math.abs(x - (b.x0 + b.x1) / 2) < 0.01 && Math.abs(z - (b.z0 + b.z1) / 2) < 0.01)) {
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.2, 0.45, 16), M('#e8e6e0')); pot.position.set(b.x0 + w / 2, 0.22, b.z0 + d / 2); scene.add(pot);
-    for (let k = 0; k < 9; k++) {
-      const lf = new THREE.Mesh(new THREE.SphereGeometry(0.26 + Math.random() * 0.1, 8, 6), M(k % 2 ? '#2f5a2e' : '#3e7038'));
-      lf.position.set(b.x0 + w / 2 + (Math.random() - .5) * .4, 0.8 + Math.random() * 0.9, b.z0 + d / 2 + (Math.random() - .5) * .4); lf.scale.y = 1.4; lf.castShadow = true; scene.add(lf);
-    }
-    continue;
+// ================== 組み立て道具（同じ部品はまとめて描く） ==================
+const GEO = {};
+const geo = (key, fn) => GEO[key] || (GEO[key] = fn());
+class Kit {
+  constructor() { this.map = new Map(); }
+  part(key, geoFn, mat, B, lx, ly, lz, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, cast = true) {
+    const k = key + '|' + mat.uuid; let e = this.map.get(k);
+    if (!e) { e = { g: geo(key, geoFn), mat, list: [], cast }; this.map.set(k, e); }
+    const L = new THREE.Matrix4().compose(new THREE.Vector3(lx, ly, lz), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(sx, sy, sz));
+    e.list.push(B ? B.clone().multiply(L) : L);
   }
-  const isBoard = d < 0.3, mat = isBoard ? M('#f7f7f5') : (b.h >= CEIL ? M('#dcd9d2') : M('#c8cbcf', { metalness: .3, roughness: .5 }));
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, b.h, d), mat); m.position.set(b.x0 + w / 2, b.h / 2, b.z0 + d / 2); m.castShadow = m.receiveShadow = true; scene.add(m);
+  flush() {
+    for (const e of this.map.values()) {
+      const im = new THREE.InstancedMesh(e.g, e.mat, e.list.length);
+      e.list.forEach((m, i) => im.setMatrixAt(i, m)); im.castShadow = e.cast; im.receiveShadow = true; im.computeBoundingSphere(); G.add(im);
+    }
+    this.map.clear();
+  }
 }
-// 看板・ポスター
-function signPlane(text, w, h, bg, fg, pos, rotY, font = 'bold 64px sans-serif') {
-  const t = canvasTex(512, Math.round(512 * h / w), (g, cw, ch) => { g.fillStyle = bg; g.fillRect(0, 0, cw, ch); g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
-    text.split('\n').forEach((ln, i, arr) => g.fillText(ln, cw / 2, ch / 2 + (i - (arr.length - 1) / 2) * 70)); });
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t })); m.position.copy(pos); m.rotation.y = rotY; scene.add(m); return m;
+let KIT = new Kit();
+const base = (x, z, ry = 0, y = 0) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z);
+function mesh(g, mat, x, y, z, ry = 0, cast = true) { const m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = cast; m.receiveShadow = true; G.add(m); return m; }
+function slab(x0, z0, x1, z1, y0, y1, mat, cast = true) { return mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, 0, cast); }
+function plane(w, h, mat, x, y, z, rx = 0, ry = 0) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true; G.add(m); return m; }
+const B_ = (w, h, d) => () => new THREE.BoxGeometry(w, h, d);
+const RB = (w, h, d, r = 0.02) => () => new RoundedBoxGeometry(w, h, d, 2, r);
+const CY = (rt, rb, h, s = 16) => () => new THREE.CylinderGeometry(rt, rb, h, s);
+
+// ---- 床・天井・壁 ----
+function floorRect(x0, z0, x1, z1, mat, y = 0) { const m = plane(x1 - x0, z1 - z0, mat, (x0 + x1) / 2, y, (z0 + z1) / 2, -Math.PI / 2); return m; }
+function ceilingRect(x0, z0, x1, z1, h, { panels = true, down = false, sx = 2.4, sz = 3.0 } = {}) {
+  const t = TX.ceiling.clone(); t.needsUpdate = true; t.repeat.set((x1 - x0) / 0.6, (z1 - z0) / 0.6);
+  plane(x1 - x0, z1 - z0, M('#ffffff', { map: t, roughness: 0.95 }), (x0 + x1) / 2, h, (z0 + z1) / 2, Math.PI / 2);
+  if (panels) for (let x = x0 + sx / 2; x < x1; x += sx) for (let z = z0 + sz / 2; z < z1; z += sz) {
+    KIT.part('lp', B_(0.6, 0.02, 1.2), MAT.lightPanel, null, x, h - 0.012, z, 0, 0, 0, 1, 1, 1, false);
+    KIT.part('lpf', B_(0.66, 0.015, 1.26), MAT.white, null, x, h - 0.004, z, 0, 0, 0, 1, 1, 1, false);
+  }
+  if (down) for (let x = x0 + 1.5; x < x1; x += 3) for (let z = z0 + 1.5; z < z1; z += 3)
+    KIT.part('dl', CY(0.09, 0.09, 0.02, 20), MAT.downlight, null, x, h - 0.01, z, 0, 0, 0, 1, 1, 1, false);
+  // 空調の吹き出し口・スプリンクラー
+  for (let x = x0 + 3.6; x < x1 - 1; x += 7.2) for (let z = z0 + 4.5; z < z1 - 1; z += 6) {
+    KIT.part('vent', B_(0.6, 0.02, 0.6), MAT.white, null, x, h - 0.01, z, 0, 0, 0, 1, 1, 1, false);
+    KIT.part('ventin', B_(0.42, 0.025, 0.42), MAT.plastic, null, x, h - 0.012, z, 0, 0, 0, 1, 1, 1, false);
+  }
 }
-signPlane('働き方改革\n定時退社を推進しよう', 1.6, 1.0, '#f4efe2', '#1f3b6e', new THREE.Vector3(0.02, 1.6, 7), Math.PI / 2, 'bold 54px sans-serif');
-signPlane('ノー残業デー\n毎週水曜', 1.2, 0.8, '#ffffff', '#c0392b', new THREE.Vector3(14, 1.7, 25.98), Math.PI, 'bold 60px sans-serif');
-signPlane('エレベーターホール', 2.2, 0.4, '#2b3036', '#ffffff', new THREE.Vector3(28.32, 2.35, 12), Math.PI / 2, 'bold 60px sans-serif');
-signPlane('非常口', 0.9, 0.3, '#1e8a4a', '#ffffff', new THREE.Vector3(MAP_W - 0.02, 2.3, (STAIRS.z0 + STAIRS.z1) / 2), -Math.PI / 2, 'bold 80px sans-serif');
-signPlane('▲ ▼', 0.4, 0.2, '#22262b', '#ffcf6a', new THREE.Vector3(MAP_W - 0.02, 1.2, 5.5), -Math.PI / 2, 'bold 90px sans-serif');
-// 掛け時計（オフィスの写真にあるやつ）
-const clockTex = canvasTex(256, 256, (g) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(128, 128, 120, 0, 7); g.fill(); g.strokeStyle = '#333'; g.lineWidth = 8; g.stroke();
-  g.lineWidth = 6; g.beginPath(); g.moveTo(128, 128); g.lineTo(128, 50); g.stroke(); g.lineWidth = 8; g.beginPath(); g.moveTo(128, 128); g.lineTo(128, 196); g.stroke(); });
-const wclock = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), new THREE.MeshBasicMaterial({ map: clockTex })); wclock.position.set(27.98, 2.2, 6); wclock.rotation.y = -Math.PI / 2; scene.add(wclock);
-// エレベーターの扉とかご
-const doorMat = M('#a9adb2', { metalness: 0.7, roughness: 0.3 });
-for (const e of ELEV) {
-  e.l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.1, 0.55), doorMat); e.r = e.l.clone();
-  e.l.position.set(MAP_W - 0.02, 1.05, e.z - 0.275); e.r.position.set(MAP_W - 0.02, 1.05, e.z + 0.275); scene.add(e.l, e.r);
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 1.6), M('#c8b89a', { side: THREE.BackSide })); cab.position.set(MAP_W + 1.1, 1.1, e.z); scene.add(cab);
-  const cl = new THREE.PointLight('#fff1d6', 2, 3); cl.position.set(MAP_W + 1, 2, e.z); scene.add(cl);
-  e.open = 0;
+// 壁（x方向に伸びる壁。z0〜z1が厚み）。cuts: [{a,b,top,pass}] は開口部
+function wallX(x0, x1, z0, z1, H, mat, cuts = []) {
+  let x = x0; cuts = [...cuts].sort((p, q) => p.a - q.a);
+  for (const c of cuts) {
+    if (c.a > x) { slab(x, z0, c.a, z1, 0, H, mat); box(x, z0, c.a, z1, H, 'wall'); }
+    slab(c.a, z0, c.b, z1, c.top, H, mat);
+    if (!c.pass) box(c.a, z0, c.b, z1, H, 'wall');
+    x = c.b;
+  }
+  if (x < x1) { slab(x, z0, x1, z1, 0, H, mat); box(x, z0, x1, z1, H, 'wall'); }
+  baseboardX(x0, x1, z0, z1, cuts);
 }
-const stairDoor = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.1, 1.5), M('#6f747a', { metalness: .4, roughness: .5 }));
-stairDoor.position.set(MAP_W - 0.03, 1.05, (STAIRS.z0 + STAIRS.z1) / 2); scene.add(stairDoor);
+function wallZ(z0, z1, x0, x1, H, mat, cuts = []) {
+  let z = z0; cuts = [...cuts].sort((p, q) => p.a - q.a);
+  for (const c of cuts) {
+    if (c.a > z) { slab(x0, z, x1, c.a, 0, H, mat); box(x0, z, x1, c.a, H, 'wall'); }
+    slab(x0, c.a, x1, c.b, c.top, H, mat);
+    if (!c.pass) box(x0, c.a, x1, c.b, H, 'wall');
+    z = c.b;
+  }
+  if (z < z1) { slab(x0, z, x1, z1, 0, H, mat); box(x0, z, x1, z1, H, 'wall'); }
+}
+function baseboardX(x0, x1, z0, z1, cuts) {
+  let x = x0; for (const c of cuts) { if (c.a > x) { slab(x, z0 - 0.012, c.a, z1 + 0.012, 0, 0.08, MAT.base, false); } x = c.b; }
+  if (x < x1) slab(x, z0 - 0.012, x1, z1 + 0.012, 0, 0.08, MAT.base, false);
+}
+// 北側（z=zw）の窓壁。外の景色とブラインド付き
+function windowWallNorth(x0, x1, zw, H, { sill = 0.85, top = 2.35, city = TX.city, blinds = 0.35 } = {}) {
+  slab(x0, zw - 0.3, x1, zw, 0, sill, MAT.paint); slab(x0, zw - 0.3, x1, zw, top, H, MAT.paint);
+  box(x0, zw - 0.3, x1, zw, H, 'wall');
+  slab(x0, zw - 0.02, x1, zw + 0.18, sill - 0.03, sill, MAT.white); // 窓台
+  const g = mesh(new THREE.PlaneGeometry(x1 - x0, top - sill), MAT.glass, (x0 + x1) / 2, (sill + top) / 2, zw - 0.15, 0, false); g.renderOrder = 3;
+  for (let x = x0; x <= x1 + 0.01; x += 1.8) KIT.part('mull', B_(0.06, top - sill, 0.12), MAT.alu, null, Math.min(x, x1 - 0.03), (sill + top) / 2, zw - 0.15);
+  KIT.part('mullh', B_(1, 0.06, 0.12), MAT.alu, null, (x0 + x1) / 2, sill + 0.03, zw - 0.15, 0, 0, 0, x1 - x0, 1, 1);
+  KIT.part('mullh', B_(1, 0.06, 0.12), MAT.alu, null, (x0 + x1) / 2, top - 0.03, zw - 0.15, 0, 0, 0, x1 - x0, 1, 1);
+  // ブラインド（上から少し下ろした状態）
+  const bl = top - sill; for (let y = top - 0.04; y > top - bl * blinds; y -= 0.045)
+    KIT.part('slat', B_(1, 0.004, 0.05), MAT.white, null, (x0 + x1) / 2, y, zw - 0.02, 0.35, 0, 0, x1 - x0 - 0.05, 1, 1, false);
+  KIT.part('blbox', B_(1, 0.06, 0.08), MAT.white, null, (x0 + x1) / 2, top - 0.02, zw - 0.02, 0, 0, 0, x1 - x0, 1, 1, false);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 + 40, 16), new THREE.MeshBasicMaterial({ map: city, fog: false }));
+  sky.position.set((x0 + x1) / 2, 2.2, zw - 14); G.add(sky);
+}
+
+// ---- 家具 ----
+function chair(x, z, ry, seat = MAT.fabOrange, back = MAT.fabBlack) {
+  const B = base(x, z, ry + rnd(-0.25, 0.25));
+  KIT.part('chSeat', RB(0.5, 0.08, 0.48, 0.03), seat, B, 0, 0.48, 0.02);
+  KIT.part('chBack', RB(0.46, 0.56, 0.06, 0.025), back, B, 0, 0.84, -0.24, -0.12);
+  KIT.part('chBackBar', B_(0.05, 0.3, 0.04), MAT.plastic, B, 0, 0.6, -0.24);
+  KIT.part('chGas', CY(0.025, 0.025, 0.3, 10), MAT.chrome, B, 0, 0.29, 0);
+  KIT.part('chHub', CY(0.05, 0.06, 0.05, 10), MAT.plastic, B, 0, 0.11, 0);
+  for (let k = 0; k < 5; k++) {
+    const a = k / 5 * Math.PI * 2;
+    KIT.part('chLeg', B_(0.05, 0.03, 0.3), MAT.plastic, B, Math.sin(a) * 0.15, 0.08, Math.cos(a) * 0.15, 0, a, 0);
+    KIT.part('chWheel', () => new THREE.SphereGeometry(0.03, 8, 6), MAT.black, B, Math.sin(a) * 0.3, 0.03, Math.cos(a) * 0.3);
+  }
+  for (const s of [-1, 1]) {
+    KIT.part('chArm', RB(0.05, 0.03, 0.26, 0.01), MAT.plastic, B, s * 0.27, 0.68, 0.0);
+    KIT.part('chArmP', B_(0.03, 0.18, 0.03), MAT.plastic, B, s * 0.27, 0.58, -0.06);
+  }
+}
+function monitor(B, lx, lz, ry = 0, scr) {
+  KIT.part('monBase', RB(0.22, 0.015, 0.17, 0.006), MAT.darkMetal, B, lx, 0.745, lz, 0, ry);
+  KIT.part('monNeck', B_(0.045, 0.3, 0.03), MAT.darkMetal, B, lx - Math.sin(ry) * 0.04, 0.9, lz - Math.cos(ry) * 0.04, 0, ry);
+  KIT.part('monPanel', RB(0.62, 0.38, 0.035, 0.01), MAT.black, B, lx, 1.08, lz, 0, ry);
+  KIT.part('monScr', () => new THREE.PlaneGeometry(0.595, 0.335), scr, B, lx + Math.sin(ry) * 0.019, 1.085, lz + Math.cos(ry) * 0.019, 0, ry, 0, 1, 1, 1, false);
+}
+// 机1台（座る人は手前 +z 側、ryで回す）
+function desk(x, z, ry, { w = 1.4, d = 0.8, items = true } = {}) {
+  const B = base(x, z, ry);
+  KIT.part('dTop', B_(w, 0.03, d), MAT.wood, B, 0, 0.725, 0);
+  KIT.part('dEdge', B_(w, 0.02, 0.01), MAT.plastic, B, 0, 0.725, d / 2);
+  for (const s of [-1, 1]) KIT.part('dLeg', B_(0.04, 0.71, d - 0.08), MAT.darkMetal, B, s * (w / 2 - 0.04), 0.355, 0);
+  KIT.part('dModesty', B_(w - 0.1, 0.36, 0.015), MAT.darkMetal, B, 0, 0.5, -d / 2 + 0.05);
+  KIT.part('dPed', B_(0.4, 0.6, 0.55), MAT.drawer, B, w / 2 - 0.26, 0.3, -0.05);
+  if (!items) return;
+  monitor(B, Math.random() < 0.3 ? -0.18 : 0, -0.2, 0, pick(MAT.screens));
+  if (Math.random() < 0.3) monitor(B, 0.42, -0.17, -0.35, pick(MAT.screens));
+  KIT.part('kb', B_(0.44, 0.02, 0.14), MAT.keyboard, B, 0, 0.75, 0.12);
+  KIT.part('mouse', RB(0.06, 0.03, 0.1, 0.012), MAT.plastic, B, 0.32, 0.755, 0.13);
+  if (Math.random() < 0.6) KIT.part('mug', CY(0.04, 0.035, 0.1, 14), pick(MAT.mug), B, rnd(-0.6, -0.4), 0.79, rnd(-0.15, 0.1));
+  if (Math.random() < 0.7) KIT.part('paper', B_(0.21, 0.012, 0.3), MAT.paper, B, rnd(-0.55, -0.35), 0.745, rnd(0, 0.2), 0, rnd(-.4, .4));
+  if (Math.random() < 0.35) KIT.part('fileBox', B_(0.1, 0.28, 0.25), pick([MAT.fabNavy, MAT.white, MAT.plastic]), B, -0.62, 0.88, -0.25);
+  if (Math.random() < 0.25) KIT.part('phone', RB(0.2, 0.06, 0.18, 0.02), MAT.plastic, B, 0.55, 0.77, -0.15);
+}
+// 島型の机（n台×2列）。座席情報を seats に入れる
+function island(x0, z0, n, seats, chairSeat = MAT.fabOrange) {
+  const w = 1.4, d = 0.8;
+  box(x0, z0, x0 + n * w, z0 + 2 * d, 0.74, 'desk');
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + w / 2 + i * w;
+    desk(cx, z0 + d / 2, Math.PI); desk(cx, z0 + d + d / 2, 0);
+    const nz = z0 - 0.4, sz = z0 + 2 * d + 0.4;
+    chair(cx, nz, 0, chairSeat); chair(cx, sz, Math.PI, chairSeat);
+    box(cx - 0.27, nz - 0.27, cx + 0.27, nz + 0.27, 0.9, 'chair'); box(cx - 0.27, sz - 0.27, cx + 0.27, sz + 0.27, 0.9, 'chair');
+    seats.push({ x: cx, z: nz, face: Math.PI / 2 }, { x: cx, z: sz, face: -Math.PI / 2 });
+  }
+}
+function plant(x, z, size = 1) {
+  box(x - 0.32 * size, z - 0.32 * size, x + 0.32 * size, z + 0.32 * size, 1.7 * size, 'tall');
+  KIT.part('pot', CY(0.26, 0.2, 0.5, 20), MAT.pot, base(x, z), 0, 0.25, 0, 0, 0, 0, size, size, size);
+  KIT.part('soil', CY(0.24, 0.24, 0.02, 16), MAT.soil, base(x, z), 0, 0.49 * size, 0, 0, 0, 0, size, 1, size);
+  KIT.part('stem', CY(0.015, 0.02, 1.2, 6), MAT.soil, base(x, z), 0, 1.0 * size, 0, 0, 0, 0, size, size, size);
+  for (let i = 0; i < 46; i++) {
+    const a = Math.random() * 6.28, h = rnd(0.6, 1.75) * size, r = rnd(0.05, 0.38) * size * (1 - Math.abs(h / size - 1.2) * 0.5);
+    KIT.part('leaf', () => new THREE.PlaneGeometry(0.16, 0.34), MAT.leaf, base(x, z), Math.cos(a) * r, h, Math.sin(a) * r, rnd(-1.1, -0.2), a, rnd(-0.4, 0.4), size, size, size, true);
+  }
+}
+function trashBins(x, z, ry = 0) {
+  KIT.part('binY', CY(0.14, 0.12, 0.34, 18), MAT.binYellow, base(x, z, ry), -0.16, 0.17, 0);
+  KIT.part('binB', CY(0.14, 0.12, 0.34, 18), MAT.binBrown, base(x, z, ry), 0.16, 0.17, 0);
+}
+function lockers(x0, z0, x1, z1, h = 1.8) {
+  box(x0, z0, x1, z1, h, 'tall');
+  const w = x1 - x0, d = z1 - z0, along = w > d;
+  const m = mesh(new THREE.BoxGeometry(w, h, d), MAT.locker, (x0 + x1) / 2, h / 2, (z0 + z1) / 2);
+  return m;
+}
+function bookshelf(x0, z0, x1, z1, h = 1.9) {
+  box(x0, z0, x1, z1, h, 'tall');
+  mesh(new THREE.BoxGeometry(x1 - x0, h, z1 - z0), [MAT.wood, MAT.wood, MAT.wood, MAT.wood, MAT.binders, MAT.binders], (x0 + x1) / 2, h / 2, (z0 + z1) / 2);
+}
+function copier(x, z, ry = 0) {
+  const B = base(x, z, ry);
+  KIT.part('cpBody', RB(1.1, 0.9, 0.7, 0.03), MAT.white, B, 0, 0.45, 0);
+  KIT.part('cpTop', RB(0.8, 0.2, 0.62, 0.03), MAT.white, B, -0.05, 1.0, 0);
+  KIT.part('cpPanel', B_(0.3, 0.02, 0.15), MAT.black, B, 0.35, 1.03, 0.25, -0.4);
+  KIT.part('cpTray', B_(0.5, 0.02, 0.3), MAT.plastic, B, -0.05, 0.92, 0.3);
+}
+function waterServer(x, z) {
+  KIT.part('wsBody', RB(0.32, 1.0, 0.36, 0.03), MAT.white, base(x, z), 0, 0.5, 0);
+  KIT.part('wsBottle', CY(0.13, 0.13, 0.42, 20), MAT.water, base(x, z), 0, 1.22, 0);
+}
+function sofa(x0, z0, x1, z1, mat = MAT.fabGray, facing = 'n') {
+  box(x0, z0, x1, z1, 0.8, 'desk');
+  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  mesh(new RoundedBoxGeometry(w, 0.42, d, 3, 0.06), mat, cx, 0.22, cz);
+  const bz = facing === 'n' ? z1 - 0.12 : facing === 's' ? z0 + 0.12 : cz, bx = facing === 'w' ? x1 - 0.12 : facing === 'e' ? x0 + 0.12 : cx;
+  if (facing === 'n' || facing === 's') mesh(new RoundedBoxGeometry(w, 0.45, 0.22, 3, 0.06), mat, cx, 0.6, bz);
+  else mesh(new RoundedBoxGeometry(0.22, 0.45, d, 3, 0.06), mat, bx, 0.6, cz);
+}
+function table(x0, z0, x1, z1, mat = MAT.lightWood, h = 0.72) {
+  box(x0, z0, x1, z1, h, 'desk');
+  slab(x0, z0, x1, z1, h - 0.04, h, mat);
+  for (const [x, z] of [[x0 + 0.1, z0 + 0.1], [x1 - 0.1, z0 + 0.1], [x0 + 0.1, z1 - 0.1], [x1 - 0.1, z1 - 0.1]]) KIT.part('tLeg', CY(0.025, 0.025, h - 0.04, 8), MAT.chrome, null, x, (h - 0.04) / 2, z);
+}
+function whiteboard(x0, z0, x1, z1) {
+  box(x0, z0, x1, z1, 1.9, 'tall');
+  const w = Math.max(x1 - x0, z1 - z0), along = (x1 - x0) > (z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const m = mesh(new THREE.BoxGeometry(w, 1.1, 0.03), [MAT.alu, MAT.alu, MAT.alu, MAT.alu, M('#ffffff', { map: TX.whiteboard, roughness: 0.25 }), M('#ffffff', { map: TX.whiteboard, roughness: 0.25 })], cx, 1.35, cz, along ? 0 : Math.PI / 2);
+  for (const s of [-1, 1]) { const ox = along ? s * (w / 2 - 0.05) : 0, oz = along ? 0 : s * (w / 2 - 0.05); slab(cx + ox - 0.02, cz + oz - 0.02, cx + ox + 0.02, cz + oz + 0.02, 0, 1.9, MAT.alu); KIT.part('wbFoot', B_(0.05, 0.04, 0.5), MAT.alu, base(cx + ox, cz + oz, along ? 0 : Math.PI / 2), 0, 0.03, 0); }
+}
+function column(x, z, s = 0.8, H) {
+  box(x - s / 2, z - s / 2, x + s / 2, z + s / 2, H, 'tall');
+  slab(x - s / 2, z - s / 2, x + s / 2, z + s / 2, 0, H, MAT.paint);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) KIT.part('cg', B_(0.04, 1.2, 0.04), MAT.alu, null, x + dx * s / 2, 0.6, z + dz * s / 2);
+  slab(x - s / 2 - 0.01, z - s / 2 - 0.01, x + s / 2 + 0.01, z + s / 2 + 0.01, 0, 0.08, MAT.base, false);
+}
+function poster(lines, w, h, x, y, z, ry, bg = '#f6f2e8', fg = '#1f3b6e', font = 'bold 54px sans-serif') {
+  const t = textTex(lines, 512, Math.round(512 * h / w), bg, fg, font);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, roughness: .7 })); m.position.set(x, y, z); m.rotation.y = ry; G.add(m);
+  KIT.part('frame', B_(w + 0.04, h + 0.04, 0.02), MAT.darkMetal, base(x, z, ry, 0), -0.0, y, -0.012);
+}
+function wallClock(x, y, z, ry) {
+  const t = canvasTex(256, 256, (g) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(128, 128, 122, 0, 7); g.fill(); g.strokeStyle = '#333'; g.lineWidth = 8; g.stroke();
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28; g.lineWidth = 5; g.beginPath(); g.moveTo(128 + Math.sin(a) * 100, 128 - Math.cos(a) * 100); g.lineTo(128 + Math.sin(a) * 112, 128 - Math.cos(a) * 112); g.stroke(); }
+    g.lineWidth = 7; g.beginPath(); g.moveTo(128, 128); g.lineTo(128, 52); g.stroke(); g.lineWidth = 9; g.beginPath(); g.moveTo(128, 128); g.lineTo(128, 190); g.stroke(); });
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.2, 32), new THREE.MeshStandardMaterial({ map: t, roughness: .3 })); m.position.set(x, y, z); m.rotation.y = ry; G.add(m);
+}
+function coatRack(x, z) {
+  box(x - 0.25, z - 0.25, x + 0.25, z + 0.25, 1.8, 'tall');
+  KIT.part('crPole', CY(0.02, 0.02, 1.8, 8), MAT.darkMetal, null, x, 0.9, z);
+  KIT.part('crBase', CY(0.25, 0.25, 0.03, 16), MAT.darkMetal, null, x, 0.015, z);
+  for (let i = 0; i < 3; i++) KIT.part('coat', RB(0.42, 0.85, 0.16, 0.06), pick([MAT.fabNavy, MAT.fabBlack, M('#4b5d48'), MAT.fabGray]), base(x, z, i * 2.1), 0, 1.25, 0.12, 0.1);
+}
+// ガラスの間仕切り（x方向）。アルミ枠とすりガラスの帯
+function glassWallX(x0, x1, z, H, cuts = []) {
+  let x = x0; cuts = [...cuts].sort((p, q) => p.a - q.a);
+  const seg = (a, b) => {
+    box(a, z - 0.05, b, z + 0.05, H, 'glass');
+    const g = mesh(new THREE.PlaneGeometry(b - a, H - 0.1), MAT.glass, (a + b) / 2, H / 2, z, 0, false); g.renderOrder = 3;
+    const f = mesh(new THREE.PlaneGeometry(b - a, 0.5), MAT.frost, (a + b) / 2, 1.25, z + 0.006, 0, false); f.renderOrder = 4;
+    const f2 = mesh(new THREE.PlaneGeometry(b - a, 0.5), MAT.frost, (a + b) / 2, 1.25, z - 0.006, Math.PI, false); f2.renderOrder = 4;
+    for (let xx = a; xx <= b + 0.01; xx += 1.2) KIT.part('gm', B_(0.04, H, 0.06), MAT.alu, null, Math.min(xx, b - 0.02), H / 2, z);
+    KIT.part('gh', B_(1, 0.05, 0.06), MAT.alu, null, (a + b) / 2, 0.025, z, 0, 0, 0, b - a, 1, 1);
+    KIT.part('gh', B_(1, 0.05, 0.06), MAT.alu, null, (a + b) / 2, H - 0.025, z, 0, 0, 0, b - a, 1, 1);
+  };
+  for (const c of cuts) { if (c.a > x) seg(x, c.a); slab(c.a, z - 0.04, c.b, z + 0.04, c.top, H, MAT.alu); x = c.b; }
+  if (x < x1) seg(x, x1);
+}
+// エレベーター（壁の開口部に置く。ry: 扉が向く方向 -π/2=西向き, 0=南向き）
+function elevator(x, z, ry, H) {
+  const B = base(x, z, ry);
+  const l = new THREE.Mesh(geo('elDoor', B_(0.55, 2.1, 0.04)), MAT.chrome), r = l.clone();
+  const gp = new THREE.Group(); gp.applyMatrix4(B); gp.add(l, r); G.add(gp);
+  l.position.set(-0.275, 1.05, 0); r.position.set(0.275, 1.05, 0); l.castShadow = r.castShadow = true;
+  KIT.part('elFrameV', B_(0.08, 2.25, 0.08), MAT.chrome, B, -0.6, 1.12, 0.03); KIT.part('elFrameV', B_(0.08, 2.25, 0.08), MAT.chrome, B, 0.6, 1.12, 0.03);
+  KIT.part('elFrameH', B_(1.28, 0.08, 0.08), MAT.chrome, B, 0, 2.2, 0.03);
+  KIT.part('elInd', B_(0.5, 0.14, 0.02), MAT.black, B, 0, 2.38, 0.03);
+  KIT.part('elBtnP', RB(0.1, 0.22, 0.02, 0.008), MAT.chrome, B, 0.9, 1.15, 0.02);
+  KIT.part('elBtn', CY(0.022, 0.022, 0.01, 12), MAT.downlight, B, 0.9, 1.2, 0.035, Math.PI / 2);
+  const cab = new THREE.Mesh(geo('elCab', B_(1.6, 2.25, 1.5)), M('#cdbb98', { side: THREE.BackSide, roughness: .4 }));
+  cab.position.set(0, 1.12, -0.95); gp.add(cab);
+  const cl = new THREE.PointLight('#fff1d6', 0, 3); cl.position.set(0, 2.0, -0.9); gp.add(cl);
+  return { l, r, gp, cl, open: 0, opening: false, x, z, ry };
+}
+// 文字の看板（MeshBasic）
+function sign(lines, w, h, x, y, z, ry, bg, fg, font) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), MAT.sign(lines, 512, Math.round(512 * h / w), bg, fg, font)); m.position.set(x, y, z); m.rotation.y = ry; G.add(m); return m; }
 
 // ================== 人物 ==================
 function photoFaceTexture(src) {
@@ -528,69 +823,303 @@ loadRealCharacter().then(r => { REAL = r; window.__real = !!r; }).catch(e => { c
 // ================== 難易度 ==================
 const DIFFS = {
   easy:   { label: 'やさしい', desc: '上司の視界が狭く、気づくのも遅い。エレベーターもほぼ安全。', range: 0.72, fov: 0.85, gain: 0.55, decay: 0.55, speed: 0.85, elevRisk: 0.2, extra: false },
-  normal: { label: 'ふつう', desc: '定時退社の標準。上司4人の目をかいくぐれ。', range: 1.0, fov: 1.0, gain: 1.0, decay: 0.32, speed: 1.0, elevRisk: 0.4, extra: false },
-  hard:   { label: 'むずかしい', desc: '視界が広く、すぐ気づかれる。主任も巡回中。エレベーターは危険。', range: 1.2, fov: 1.15, gain: 1.6, decay: 0.2, speed: 1.2, elevRisk: 0.65, extra: true },
+  normal: { label: 'ふつう', desc: '定時退社の標準。上司たちの目をかいくぐれ。', range: 1.0, fov: 1.0, gain: 1.0, decay: 0.32, speed: 1.0, elevRisk: 0.4, extra: false },
+  hard:   { label: 'むずかしい', desc: '視界が広く、すぐ気づかれる。上司が1人増える。エレベーターは危険。', range: 1.2, fov: 1.15, gain: 1.6, decay: 0.2, speed: 1.2, elevRisk: 0.65, extra: true },
 };
 let diffKey = 'normal';
 const D = () => DIFFS[diffKey];
 
-// ================== 上司・同僚 ==================
-const BOSS_DEFS = [
-  { name: '係長', look: { shirt: '#f0f0ee', pants: '#33363b', hair: '#1a1a1a', style: 'short', jacket: null, glasses: true },
-    speed: 1.15, path: [[26, 16.8, 2.2], [1.6, 16.8, 2.2]] },
-  { name: '課長', look: { shirt: '#f4f4f2', pants: '#2b2e33', hair: '#2a2a2a', style: 'short', jacket: '#2e3440', tie: '#6b1f2a' },
-    speed: 1.05, path: [[17.3, 22.6, 2.5], [17.3, 6.8, 1.6], [9.3, 6.8, 1.6], [9.3, 22.6, 2.0]] },
-  { name: '部長', look: { shirt: '#ffffff', pants: '#24272c', hair: '#8d8d8d', style: 'gray', jacket: '#23262d', tie: '#1f3d6b', glasses: true },
-    speed: 1.0, path: [[29.8, 8.5, 1.8], [37.8, 8.5, 1.5], [37.8, 18.2, 1.5], [29.8, 18.2, 1.8]] },
-  { name: '次長', look: { shirt: '#ffffff', pants: '#2a2a2a', hair: '#b0b0b0', style: 'gray', jacket: null, mustache: true, cigarette: true },
-    speed: 0, path: [[34.2, 24.6, 9999]], sweep: { center: -Math.PI / 2 + 0.25, amp: 1.25, speed: 0.55 } },
-  { name: '主任', hardOnly: true, look: { shirt: '#dfe9f3', pants: '#2c2f35', hair: '#1e1e1e', style: 'short', jacket: null },
-    speed: 1.2, path: [[1.6, 6.8, 1.5], [26, 6.8, 1.5]] },
+
+
+// ================== ステージ ==================
+// 各ステージの build() は見た目と当たり判定を作り、{seats, sitters, elevs, exits, start, sun, points, hemi} を返す
+const LOOK = {
+  kakaricho: { shirt: '#f0f0ee', pants: '#33363b', hair: '#1a1a1a', style: 'short', jacket: null, glasses: true },
+  kacho: { shirt: '#f4f4f2', pants: '#2b2e33', hair: '#2a2a2a', style: 'short', jacket: '#2e3440', tie: '#6b1f2a' },
+  bucho: { shirt: '#ffffff', pants: '#24272c', hair: '#8d8d8d', style: 'gray', jacket: '#23262d', tie: '#1f3d6b', glasses: true },
+  jicho: { shirt: '#ffffff', pants: '#2a2a2a', hair: '#b0b0b0', style: 'gray', jacket: null, mustache: true, cigarette: true },
+  shunin: { shirt: '#dfe9f3', pants: '#2c2f35', hair: '#1e1e1e', style: 'short', jacket: null },
+  senmu: { shirt: '#ffffff', pants: '#1d1f24', hair: '#a0a0a0', style: 'gray', jacket: '#1b1d24', tie: '#6b4a1a', glasses: true },
+  jomu: { shirt: '#f7f7f5', pants: '#2a2c31', hair: '#3a3a3a', style: 'short', jacket: '#3a3f4a', tie: '#24466e' },
+  hisho: { shirt: '#f2efe9', pants: '#2b2b30', hair: '#2a1d16', style: 'bob', jacket: '#2d3242', lanyard: false },
+  shacho: { shirt: '#ffffff', pants: '#16171b', hair: '#d6d6d6', style: 'gray', jacket: '#15161b', tie: '#8a1c1c', glasses: true },
+  shitsucho: { shirt: '#eef2f6', pants: '#2b2e33', hair: '#262626', style: 'short', jacket: '#40464f', tie: '#2f4f2f' },
+  keibi: { shirt: '#c9d8ea', pants: '#1c2436', hair: '#1a1a1a', style: 'short', jacket: '#1f2a44', tie: '#1f2a44', lanyard: false },
+};
+const STAGES = [
+  {
+    id: 'sales', floor: '本社 8F', name: '営業フロア', W: 40, D: 26, H: 2.7,
+    desc: 'いつもの職場。島型の机が並ぶ営業フロアを抜け、エレベーターか非常階段へ。',
+    goal: '目標：エレベーター or 非常階段',
+    bosses: [
+      { name: '係長', look: 'kakaricho', speed: 1.15, path: [[26, 16.8, 2.2], [1.6, 16.8, 2.2]] },
+      { name: '課長', look: 'kacho', speed: 1.05, path: [[17.3, 22.6, 2.5], [17.3, 6.8, 1.6], [9.3, 6.8, 1.6], [9.3, 22.6, 2.0]] },
+      { name: '部長', look: 'bucho', speed: 1.0, path: [[29.8, 8.5, 1.8], [37.8, 8.5, 1.5], [37.8, 18.2, 1.5], [29.8, 18.2, 1.8]] },
+      { name: '次長', look: 'jicho', speed: 0, path: [[34.2, 24.6, 9999]], sweep: { center: -Math.PI / 2 + 0.25, amp: 1.25, speed: 0.55 }, pose: 'smoke' },
+      { name: '主任', look: 'shunin', hardOnly: true, speed: 1.2, path: [[1.6, 6.8, 1.5], [26, 6.8, 1.5]] },
+    ],
+    locName: (x, z) => x > 28 ? 'エレベーターホール' : '営業フロア',
+    build() {
+      const W = 40, D = 26, H = 2.7, OW = 28, seats = [];
+      floorRect(0, 0, OW, D, MAT.carpet(OW, D));
+      floorRect(OW, 0, W, D, MAT.tiled(TX.stone, (W - OW) / 1.2, D / 1.2, { roughness: 0.32 }));
+      ceilingRect(0, 0, OW, D, H, { panels: true });
+      ceilingRect(OW, 0, W, D, H, { panels: false, down: true });
+      windowWallNorth(0, OW, 0, H);
+      wallX(OW, W + 0.3, -0.3, 0, H, MAT.paint2);
+      wallX(-0.3, W + 0.3, D, D + 0.3, H, MAT.paint);
+      wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallZ(0, D, W, W + 0.3, H, MAT.paint2, [{ a: 3.45, b: 4.55, top: 2.25 }, { a: 6.45, b: 7.55, top: 2.25 }, { a: 21.5, b: 23, top: 2.15 }]);
+      wallZ(0, D, OW, OW + 0.3, H, MAT.paint, [{ a: 11, b: 13, top: 2.25, pass: true }]);
+      // 島型の机 3列×4島
+      for (const ix of [2.5, 10.5, 18.5]) for (const iz of [3.5, 8.5, 13.5, 18.5]) island(ix, iz, 4, seats);
+      // 課長席（島を見渡す向き）
+      box(12.6, 23.5, 14.0, 24.3, 0.74, 'desk'); desk(13.3, 23.9, 0); chair(13.3, 24.7, Math.PI, MAT.fabBlack); box(13.03, 24.43, 13.57, 24.97, 0.9, 'chair');
+      column(5.3, 11.8, 0.8, H); column(21.3, 11.8, 0.8, H);
+      trashBins(5.3, 12.55); trashBins(21.3, 12.55);
+      lockers(12, 25.4, 16.5, 26, 1.8);
+      bookshelf(0, 2, 0.45, 6, 1.9);
+      whiteboard(25.4, 15.5, 27.6, 15.7);
+      copier(26.9, 21, -Math.PI / 2); box(26.55, 20.45, 27.25, 21.55, 1.1, 'tall');
+      waterServer(27.4, 9.8); box(27.2, 9.6, 27.6, 10.0, 1.3, 'tall');
+      coatRack(1.0, 24.8);
+      for (const [x, z] of [[27.2, 1.0], [0.9, 12.6], [27.2, 24.8], [29.2, 1.0], [39.0, 10.0], [29.2, 24.8]]) plant(x, z);
+      poster(['働き方改革', '定時退社を推進しよう'], 1.6, 1.0, 0.02, 1.6, 7.5, Math.PI / 2);
+      poster(['ノー残業デー', '毎週水曜'], 1.2, 0.8, 19, 1.7, D - 0.02, Math.PI, '#ffffff', '#c0392b', 'bold 60px sans-serif');
+      wallClock(OW - 0.02, 2.2, 6, -Math.PI / 2);
+      // ホール：会議室・ソファ・案内
+      const meet = textTex(['会議室 A'], 512, 256, '#b8bfc5', '#2b3036', 'bold 44px sans-serif');
+      box(31, 10, 36, 16, H, 'wall'); mesh(new THREE.BoxGeometry(5, H, 6), M('#ffffff', { map: meet, roughness: .5 }), 33.5, H / 2, 13);
+      sofa(32.5, 20.6, 35.5, 21.5, MAT.fabNavy, 'n');
+      sign(['エレベーターホール'], 2.2, 0.36, OW + 0.32, 2.35, 12, Math.PI / 2, '#2b3036', '#ffffff', 'bold 60px sans-serif');
+      sign(['非常口'], 0.9, 0.3, W - 0.02, 2.35, 22.25, -Math.PI / 2, '#1e8a4a', '#ffffff', 'bold 80px sans-serif');
+      sign(['8F'], 0.4, 0.4, W - 0.02, 1.6, 5.5, -Math.PI / 2, '#22262b', '#ffcf6a', 'bold 160px sans-serif');
+      KIT.part('sDoor', B_(0.06, 2.1, 1.5), M('#6f747a', { metalness: .4, roughness: .45 }), null, W - 0.03, 1.05, 22.25);
+      KIT.part('sBar', B_(0.05, 0.05, 1.1), MAT.chrome, null, W - 0.08, 1.0, 22.25);
+      const elevs = [elevator(W - 0.02, 4, -Math.PI / 2, H), elevator(W - 0.02, 7, -Math.PI / 2, H)];
+      return {
+        seats, sitters: [1, 9, 20, 27, 36, 44, 58, 71, 83], elevs,
+        exits: [{ type: 'elev', zone: [W - 1.6, 2.6, W, 8.4], label: 'E：エレベーターを呼ぶ（上司と鉢合わせの危険）' }, { type: 'stairs', zone: [W - 1.6, 21.1, W, 23.4], label: 'E：非常階段で帰る', target: [W + 0.8, 22.25] }],
+        start: { x: 3.9, z: 21.5, yaw: Math.PI / 2 },
+        sun: { pos: [10, 8, -14], target: [16, 0, 12], color: '#ffb070', intensity: 2.3 }, hemi: 0.75,
+        points: [[7, 6], [7, 17], [17, 6], [17, 17], [25, 11], [34, 6], [34, 19], [38.5, 5.5], [38.5, 22.2]],
+      };
+    },
+  },
+  {
+    id: 'exec', floor: '本社 12F', name: '役員フロア', W: 36, D: 24, H: 2.9,
+    desc: 'ガラス張りの会議室が並ぶ廊下。ガラスは視線を通す。社長室に隠れながら奥のエレベーターへ。',
+    goal: '目標：奥のエレベーター or 非常階段',
+    bosses: [
+      { name: '専務', look: 'senmu', speed: 1.0, path: [[26, 12, 2.0], [3.5, 12, 2.0]] },
+      { name: '常務', look: 'jomu', speed: 0.9, path: [[12.6, 7.5, 2.2], [17.4, 7.5, 2.2]] },
+      { name: '秘書', look: 'hisho', speed: 0, path: [[24.9, 17.0, 9999]], sweep: { center: -Math.PI / 2, amp: 0.95, speed: 0.42 }, pose: 'sit' },
+      { name: '社長', look: 'shacho', speed: 0.95, path: [[30, 4, 2.0], [34, 4, 1.5], [34, 17.5, 1.5], [30, 17.5, 2.0]] },
+      { name: '室長', look: 'shitsucho', hardOnly: true, speed: 1.1, path: [[14, 12.6, 1.2], [27, 12.6, 1.2]] },
+    ],
+    locName: (x, z) => x > 28.3 ? 'エレベーターホール' : z < 10 ? '会議室' : z > 14.15 ? (x < 12 ? '社長室' : x < 21 ? '専務室' : '役員ラウンジ') : '役員フロア廊下',
+    build() {
+      const W = 36, D = 24, H = 2.9, seats = [];
+      floorRect(0, 0, 28, 14.15, MAT.carpet(28, 14.15)); floorRect(0, 0, 28, 14.15, M('#3b4660', { transparent: true, opacity: 0.25, depthWrite: false }), 0.002);
+      floorRect(0, 14.15, 21, D, MAT.tiled(TX.lightWood, 21 / 2.5, (D - 14.15) / 0.6, { roughness: 0.4 }));
+      floorRect(21, 14.15, 28, D, MAT.carpet(7, D - 14.15));
+      floorRect(28, 0, W, D, MAT.tiled(TX.marble, (W - 28) / 1.6, D / 1.6, { roughness: 0.12 }));
+      ceilingRect(0, 0, 28, 10, H, { panels: true, sx: 2.5, sz: 2.5 });
+      ceilingRect(0, 10, 28, D, H, { panels: false, down: true });
+      ceilingRect(28, 0, W, D, H, { panels: false, down: true });
+      windowWallNorth(0, 28, 0, H, { blinds: 0.25 });
+      wallX(28, W + 0.3, -0.3, 0, H, MAT.paint2);
+      wallX(-0.3, W + 0.3, D, D + 0.3, H, MAT.paint);
+      wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallZ(0, D, W, W + 0.3, H, MAT.paint2, [{ a: 4.45, b: 5.55, top: 2.25 }, { a: 7.45, b: 8.55, top: 2.25 }, { a: 19.5, b: 21, top: 2.15 }]);
+      wallZ(0, D, 28, 28.3, H, MAT.paint, [{ a: 10, b: 14, top: 2.5, pass: true }]);
+      // ガラス張りの会議室 ×3（扉の位置だけ通れる）
+      glassWallX(0, 10, 10, H, [{ a: 8.4, b: 9.6, top: 2.2 }]);
+      glassWallX(11, 19, 10, H, [{ a: 17.4, b: 18.6, top: 2.2 }]);
+      glassWallX(20, 28, 10, H, [{ a: 26.4, b: 27.6, top: 2.2 }]);
+      wallZ(0, 9.95, 10, 11, H, MAT.paint); wallZ(0, 9.95, 19, 20, H, MAT.paint);
+      for (const [x0, x1] of [[2.5, 7.5], [12.6, 17.4], [21.5, 26.5]]) {
+        table(x0, 4.1, x1, 5.9, MAT.white);
+        for (let x = x0 + 0.6; x < x1; x += 1.2) { chair(x, 3.5, 0, MAT.fabBlack); chair(x, 6.5, Math.PI, MAT.fabBlack); box(x - .26, 3.24, x + .26, 3.76, .9, 'chair'); box(x - .26, 6.24, x + .26, 6.76, .9, 'chair'); seats.push({ x, z: 3.5, face: Math.PI / 2 }, { x, z: 6.5, face: -Math.PI / 2 }); }
+      }
+      for (const x0 of [0, 11, 20]) { KIT.part('tv', RB(1.6, 0.92, 0.06, 0.01), MAT.black, null, x0 + 0.04 + (x0 === 0 ? 0 : 0.0), 1.5, 5, 0, Math.PI / 2); }
+      // 廊下：植物・飾り棚（隠れ場所）
+      plant(2.2, 13.45, 0.9); plant(10.5, 13.45, 0.9); plant(24.4, 13.45, 0.9);
+      box(18.9, 13.5, 20.5, 14.0, 1.6, 'tall'); mesh(new THREE.BoxGeometry(1.6, 1.6, 0.5), [MAT.wood, MAT.wood, MAT.wood, MAT.wood, MAT.glass, MAT.wood], 19.7, 0.8, 13.75);
+      for (let i = 0; i < 3; i++) KIT.part('trophy', CY(0.05, 0.08, 0.3, 12), M('#c9a227', { metalness: 1, roughness: .3 }), null, 19.2 + i * 0.5, 1.2, 13.75);
+      // 南側：社長室・専務室・ラウンジ
+      wallX(0, 28, 14.0, 14.15, H, MAT.paint, [{ a: 5.5, b: 7.0, top: 2.2, pass: true }, { a: 15, b: 16.5, top: 2.2, pass: true }, { a: 21.15, b: 28, top: 2.6, pass: true }]);
+      wallZ(14.15, D, 12, 12.15, H, MAT.paint); wallZ(14.15, D, 21, 21.15, H, MAT.paint);
+      sign(['社長室'], 0.6, 0.18, 7.4, 2.0, 13.99, Math.PI, '#2b2620', '#e8d9b0', 'bold 90px serif');
+      sign(['専務室'], 0.6, 0.18, 16.9, 2.0, 13.99, Math.PI, '#2b2620', '#e8d9b0', 'bold 90px serif');
+      table(4, 20.2, 8.2, 21.2, MAT.wood, 0.74); chair(6.1, 21.7, Math.PI, MAT.leather, MAT.leather); box(5.84, 21.44, 6.36, 21.96, .9, 'chair');
+      monitor(base(6.1, 20.7, 0), 0, 0, 0, MAT.screens[2]);
+      sofa(1.0, 15.6, 3.8, 16.4, MAT.leather, 's'); table(1.6, 17.0, 3.2, 17.8, MAT.wood, 0.42); sofa(1.0, 18.4, 3.8, 19.2, MAT.leather, 'n');
+      bookshelf(0.5, 23.4, 11.5, 24); plant(11.2, 15.0, 0.9);
+      poster(['誠実・挑戦・感謝'], 1.4, 0.7, 0.02, 1.7, 20.5, Math.PI / 2, '#f4efe2', '#2a2015', 'bold 60px serif');
+      table(14.5, 20, 18.5, 21, MAT.wood, 0.74); chair(16.5, 21.5, Math.PI, MAT.leather, MAT.leather); box(16.24, 21.24, 16.76, 21.76, .9, 'chair');
+      bookshelf(12.5, 23.4, 20.5, 24); sofa(13, 15.5, 15.5, 16.3, MAT.leather, 's');
+      // ラウンジ：秘書席
+      box(23.4, 15.6, 26.4, 16.4, 1.05, 'desk'); slab(23.4, 15.6, 26.4, 16.4, 0, 1.0, MAT.wood); slab(23.35, 15.55, 26.45, 16.45, 1.0, 1.05, MAT.marbleTop);
+      chair(24.9, 17.0, Math.PI, MAT.fabBlack);
+      sofa(22, 21.5, 24.5, 22.4, MAT.fabGray, 'n'); sofa(25, 21.5, 27.5, 22.4, MAT.fabGray, 'n'); plant(27.3, 23.3);
+      // エレベーターホール
+      for (const [x, z] of [[29.2, 1.0], [35.2, 1.0], [29.2, 22.8], [35.2, 22.8]]) plant(x, z);
+      sign(['12F 役員フロア'], 2.4, 0.4, 28.32, 2.4, 12, Math.PI / 2, '#1f2228', '#e8d9b0', 'bold 60px serif');
+      sign(['非常口'], 0.9, 0.3, W - 0.02, 2.35, 20.25, -Math.PI / 2, '#1e8a4a', '#ffffff', 'bold 80px sans-serif');
+      KIT.part('sDoor', B_(0.06, 2.1, 1.5), M('#6f747a', { metalness: .4, roughness: .45 }), null, W - 0.03, 1.05, 20.25);
+      KIT.part('sBar', B_(0.05, 0.05, 1.1), MAT.chrome, null, W - 0.08, 1.0, 20.25);
+      wallClock(28.32, 2.2, 6, Math.PI / 2);
+      const elevs = [elevator(W - 0.02, 5, -Math.PI / 2, H), elevator(W - 0.02, 8, -Math.PI / 2, H)];
+      return {
+        seats, sitters: [0, 3, 4, 7, 11],
+        elevs,
+        exits: [{ type: 'elev', zone: [W - 1.6, 3.6, W, 9.4], label: 'E：エレベーターを呼ぶ（上司と鉢合わせの危険）' }, { type: 'stairs', zone: [W - 1.6, 19.1, W, 21.4], label: 'E：非常階段で帰る', target: [W + 0.8, 20.25] }],
+        start: { x: 1.2, z: 12, yaw: Math.PI / 2 },
+        sun: { pos: [8, 8, -14], target: [14, 0, 10], color: '#ffa860', intensity: 2.0 }, hemi: 0.7,
+        points: [[5, 5], [15, 5], [24, 5], [6, 12], [18, 12], [6, 19], [16, 19], [24, 19], [32, 6], [32, 18]],
+      };
+    },
+  },
+  {
+    id: 'lobby', floor: '本社 1F', name: 'エントランス', W: 34, D: 26, H: 4.2,
+    desc: '最後の関門。セキュリティゲートを抜け、大理石のロビーを横切って正面玄関から外へ。',
+    goal: '目標：正面玄関（自動ドア）から外へ',
+    bosses: [
+      { name: '警備員', look: 'keibi', speed: 0, path: [[22.6, 13.0, 9999]], sweep: { center: Math.PI, amp: 0.75, speed: 0.5 } },
+      { name: '部長', look: 'bucho', speed: 0, path: [[5.5, 16.45, 9999]], sweep: { center: -Math.PI / 2, amp: 1.0, speed: 0.3 }, pose: 'sit' },
+      { name: '社長', look: 'shacho', speed: 0.95, path: [[17, 24.2, 3.0], [17, 14.3, 1.5], [31.5, 14.3, 1.5], [31.5, 24.2, 2.0]] },
+      { name: '警備員', look: 'keibi', hardOnly: true, speed: 0.8, path: [[8.5, 24.6, 1.5], [13.5, 24.6, 1.0]] },
+    ],
+    locName: (x, z) => z < 12 ? 'エレベーターホール' : '1F エントランスロビー',
+    build() {
+      const W = 34, D = 26, H = 4.2, seats = [];
+      floorRect(0, 0, W, D, MAT.tiled(TX.marble, W / 2.4, D / 2.4, { roughness: 0.12, metalness: 0.0, color: '#d6d1c8' }));
+      ceilingRect(0, 0, W, D, H, { panels: false, down: true });
+      // 北壁（エレベーター3基）
+      wallX(-0.3, W + 0.3, -0.3, 0, H, MAT.paint2, [{ a: 3.45, b: 4.55, top: 2.25 }, { a: 6.95, b: 8.05, top: 2.25 }, { a: 10.45, b: 11.55, top: 2.25 }]);
+      wallZ(0, D, -0.3, 0, H, MAT.paint2); wallZ(0, D, W, W + 0.3, H, MAT.paint2);
+      // 南のガラス張り正面（自動ドアのところだけ通れる）
+      box(-0.3, D, 14.5, D + 0.3, H, 'wall'); box(19.5, D, W + 0.3, D + 0.3, H, 'wall');
+      const fg = mesh(new THREE.PlaneGeometry(W, H - 0.2), MAT.glass, W / 2, H / 2, D + 0.1, 0, false); fg.renderOrder = 3;
+      for (let x = 0; x <= W + 0.01; x += 2) KIT.part('fmull', B_(0.08, H, 0.15), MAT.darkMetal, null, Math.min(x, W - 0.04), H / 2, D + 0.1);
+      KIT.part('fmullh', B_(1, 0.1, 0.15), MAT.darkMetal, null, W / 2, 3.0, D + 0.1, 0, 0, 0, W, 1, 1);
+      const street = new THREE.Mesh(new THREE.PlaneGeometry(W + 50, 18), new THREE.MeshBasicMaterial({ map: cityTex(false), fog: false }));
+      street.position.set(W / 2, 3, D + 16); street.rotation.y = Math.PI; G.add(street);
+      floorRect(-20, D + 0.3, W + 20, D + 15, M('#55524f', { roughness: .9 }), -0.02);
+      const doors = [];
+      for (let i = 0; i < 4; i++) { const d = new THREE.Mesh(geo('adoor', B_(1.25, 2.6, 0.04)), MAT.glass); d.position.set(14.5 + 0.625 + i * 1.25, 1.3, D + 0.05); d.renderOrder = 3; G.add(d); doors.push(d); }
+      KIT.part('adoorTop', B_(5.2, 0.3, 0.3), MAT.darkMetal, null, 17, 2.75, D + 0.05);
+      sign(['ENTRANCE'], 1.6, 0.25, 17, 3.1, D - 0.1, Math.PI, '#1d1f24', '#ffffff', 'bold 90px sans-serif');
+      // セキュリティゲート（柱の間を抜ける）
+      for (let x = 1.2; x <= 20.5; x += 1.2) {
+        box(x - 0.12, 11.7, x + 0.12, 12.5, 1.0, 'desk');
+        KIT.part('gate', RB(0.24, 1.0, 0.8, 0.04), MAT.chrome, null, x, 0.5, 12.1);
+        KIT.part('gateTop', B_(0.25, 0.02, 0.8), MAT.black, null, x, 1.01, 12.1);
+        KIT.part('gateFlap', B_(0.36, 0.5, 0.012), MAT.glass, null, x + 0.3, 0.75, 12.1, 0, 1.35);
+      }
+      glassWallX(21, W, 12.1, 2.4);
+      // 受付
+      box(24, 15.5, 30, 16.5, 1.05, 'desk');
+      slab(24, 15.5, 30, 16.5, 0, 1.0, MAT.lightWood); slab(23.95, 15.45, 30.05, 16.55, 1.0, 1.06, MAT.marbleTop);
+      sign(['受付  RECEPTION'], 2.8, 0.35, 27, 1.55, 16.56, 0, '#20232a', '#f2e6c4', 'bold 56px sans-serif');
+      for (const x of [25.5, 28.5]) { chair(x, 15.1, 0, MAT.fabBlack); box(x - .26, 14.84, x + .26, 15.36, .9, 'chair'); seats.push({ x, z: 15.1, face: Math.PI / 2 }); }
+      // 待合スペース
+      sofa(3, 16.6, 8, 17.5, MAT.fabNavy, 'n'); table(4, 14.9, 7, 15.9, MAT.wood, 0.42); sofa(3, 13.4, 8, 14.3, MAT.fabNavy, 's');
+      seats.push({ x: 6.8, z: 13.9, face: Math.PI / 2 });
+      column(12, 16.5, 1.0, H); column(12, 22, 1.0, H); column(24, 21, 1.0, H);
+      for (const [x, z, s] of [[1.2, 24.8, 1.4], [32.8, 24.8, 1.4], [32.8, 2.0, 1.2], [13.2, 2.0, 1.2], [1.0, 9.5, 1.1]]) plant(x, z, s);
+      // 北側の案内・郵便受け
+      sign(['TENANT DIRECTORY', '1F エントランス', '8F 営業部', '12F 役員室'], 1.6, 1.2, 16, 1.7, 0.02, 0, '#1f2228', '#e8e2d0', 'bold 46px sans-serif');
+      KIT.part('mailbox', B_(4, 1.4, 0.35), MAT.steel, null, 24, 0.9, 0.18);
+      sign(['1F'], 0.45, 0.45, 9.25, 1.6, 0.02, 0, '#22262b', '#ffcf6a', 'bold 160px sans-serif');
+      const elevs = [elevator(4, 0.02, 0, H), elevator(7.5, 0.02, 0, H), elevator(11, 0.02, 0, H)];
+      return {
+        seats, sitters: [0, 1, 2], elevs, autoDoors: doors,
+        exits: [{ type: 'door', zone: [14.5, 25.1, 19.5, 26], label: '正面玄関へ！', target: [17, D + 3] }],
+        start: { x: 7.5, z: 1.6, yaw: 0 },
+        sun: { pos: [10, 9, 40], target: [17, 0, 12], color: '#ffb67a', intensity: 1.2 }, hemi: 0.45, exposure: 0.72, pointI: 3.2,
+        points: [[6, 5], [17, 5], [28, 5], [6, 16], [17, 18], [28, 18], [17, 24]],
+      };
+    },
+  },
 ];
-const COWORKERS = [[1, 'sit'], [9, 'sit'], [20, 'sit'], [27, 'sit'], [36, 'sit'], [44, 'sit'], [58, 'sit'], [71, 'sit'], [83, 'sit']];
-for (const [si] of COWORKERS) {
-  const s = seats[si]; if (!s) continue;
-  const p = makePerson({ shirt: pick(['#dfe6ee', '#f2f2f0', '#2f3540', '#d9cfc0']), pants: '#2b2b2f', hair: pick(['#1b1b1b', '#3a2a20']), style: pick(['short', 'bob']), smile: Math.random() < .5 });
-  p.root.position.set(s.x, 0, s.z); p.root.rotation.y = Math.PI / 2 - s.face; scene.add(p.root); animatePerson(p, 0, 0, false, 'sit');
-  s.person = p;
+let stageIdx = 0;
+let lightsGroup = null;
+
+function buildStage(idx) {
+  stageIdx = idx;
+  scene.remove(G); G = new THREE.Group(); scene.add(G); OBST = []; KIT = new Kit();
+  const S = STAGES[idx];
+  const info = S.build();
+  KIT.flush();
+  // 照明
+  const hemi = new THREE.HemisphereLight('#fff8ee', '#4b4743', info.hemi); G.add(hemi);
+  const sun = new THREE.DirectionalLight(info.sun.color, info.sun.intensity);
+  sun.position.set(...info.sun.pos); sun.target.position.set(...info.sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(quality === 'high' ? 2048 : 1024, quality === 'high' ? 2048 : 1024);
+  const r = Math.max(S.W, S.D) * 0.85;
+  Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 90 });
+  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; G.add(sun, sun.target);
+  for (const [x, z] of info.points) { const p = new THREE.PointLight('#f4f6ff', info.pointI || 5, 13, 1.6); p.position.set(x, S.H - 0.3, z); G.add(p); }
+  // 座っている同僚
+  for (const si of info.sitters) {
+    const s = info.seats[si]; if (!s) continue;
+    const p = makePerson({ shirt: pick(['#dfe6ee', '#f2f2f0', '#2f3540', '#d9cfc0', '#e8d6d6']), pants: '#2b2b2f', hair: pick(['#1b1b1b', '#3a2a20']), style: pick(['short', 'bob', 'long']), smile: Math.random() < .5, jacket: Math.random() < .4 ? pick(['#2e3440', '#3d3f45']) : null });
+    p.root.position.set(s.x, 0, s.z); p.root.rotation.y = Math.PI / 2 - s.face; G.add(p.root); animatePerson(p, 0, 0, false, 'sit');
+  }
+  scene.fog = new THREE.Fog('#2a2826', 30, 80);
+  renderer.toneMappingExposure = info.exposure || 1.0;
+  STAGE = { ...S, ...info };
+  window.__stage = STAGE.id;
 }
 
-let bosses = [];
+
+// ================== 上司 ==================
+let bosses = [], bossLayer = new THREE.Group(); scene.add(bossLayer);
 function spawnBosses() {
-  for (const b of bosses) scene.remove(b.p.root, b.cone, b.mark, b.tag);
-  bosses = BOSS_DEFS.filter(d => !d.hardOnly || D().extra).map(d => {
-    const p = makePerson(d.look);
+  scene.remove(bossLayer); bossLayer = new THREE.Group(); scene.add(bossLayer);
+  bosses = STAGE.bosses.filter(d => !d.hardOnly || D().extra).map(d => {
+    const p = makePerson(LOOK[d.look]);
     const b = { ...d, p, x: d.path[0][0], z: d.path[0][1], wp: 1 % d.path.length, wait: d.path[0][2], look: 0, sus: 0,
       fov: 1.22 * D().fov, range: 9 * D().range, ang: 0, baseAng: 0 };
     b.speed = d.speed * D().speed;
     if (d.path.length > 1) { const n = d.path[b.wp]; b.ang = b.baseAng = Math.atan2(n[1] - b.z, n[0] - b.x); }
     if (d.sweep) b.ang = b.baseAng = d.sweep.center;
-    const N = 40, geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((N + 2) * 3), 3));
-    const idx = []; for (let i = 1; i <= N; i++) idx.push(0, i + 1, i); geo.setIndex(idx);
-    b.cone = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#f2c94c', transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }));
+    const N = 44, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array((N + 2) * 3), 3));
+    const idx = []; for (let i = 1; i <= N; i++) idx.push(0, i + 1, i); g.setIndex(idx);
+    b.cone = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: '#f2c94c', transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
     b.cone.renderOrder = 2; b.cone.frustumCulled = false; b.coneN = N;
     b.mark = labelSprite('？', '#f2c94c', 0.5); b.mark.visible = false;
     b.tag = labelSprite(d.name, '#ffffff', 0.32);
-    scene.add(p.root, b.cone, b.mark, b.tag);
+    bossLayer.add(p.root, b.cone, b.mark, b.tag);
+    placeBoss(b, 0, 0);
     return b;
   });
 }
 function updateCone(b, crouch) {
   const pos = b.cone.geometry.attributes.position, N = b.coneN, range = b.range * (crouch ? 0.75 : 1);
-  pos.setXYZ(0, b.x, 0.03, b.z);
+  pos.setXYZ(0, b.x, 0.025, b.z);
   for (let i = 0; i <= N; i++) {
     const a = b.ang - b.fov / 2 + b.fov * i / N;
     const d = rayDist(b.x, b.z, a, range, o => o.kind === 'wall' || o.kind === 'tall');
-    pos.setXYZ(i + 1, b.x + Math.cos(a) * d, 0.03, b.z + Math.sin(a) * d);
+    pos.setXYZ(i + 1, b.x + Math.cos(a) * d, 0.025, b.z + Math.sin(a) * d);
   }
   pos.needsUpdate = true;
   b.cone.material.color.set(b.sus > 0.05 ? '#ff5a5f' : '#f2c94c');
-  b.cone.material.opacity = 0.2 + b.sus * 0.25;
+  b.cone.material.opacity = 0.16 + b.sus * 0.25;
+}
+function placeBoss(b, dt, moving) {
+  b.p.root.position.set(b.x, 0, b.z); b.p.root.rotation.y = Math.PI / 2 - b.ang;
+  animatePerson(b.p, dt, moving, false, b.pose || null);
+  const top = b.pose === 'sit' ? 1.85 : 2.3;
+  b.mark.position.set(b.x, top, b.z); b.mark.visible = b.sus > 0.05 || (state === 'caught' && caughtBy === b);
+  b.tag.position.set(b.x, top - 0.28, b.z); b.tag.visible = state === 'play';
 }
 
 // ================== プレイヤー・入力 ==================
 let chara = CHARACTERS[0], player = null, pl = null;
-let state = 'title', gameSec = 0, yaw = Math.PI / 2, pitch = 0.32, meter = 0, elevWait = -1, elevTarget = null, caughtBy = null, cutT = 0;
+let state = 'title', gameSec = 0, yaw = Math.PI / 2, pitch = 0.32, meter = 0, elevWait = -1, elevTarget = null, caughtBy = null, cutT = 0, exitTarget = null, elevBoss = null;
 const keys = {};
 let sneakToggle = false;
 addEventListener('keydown', e => {
@@ -606,7 +1135,6 @@ addEventListener('mousemove', e => {
   if (document.pointerLockElement === view) { yaw -= e.movementX * 0.0028; pitch = clamp(pitch + e.movementY * 0.002, -0.1, 0.9); }
   else if (e.buttons & 1) { yaw -= e.movementX * 0.004; pitch = clamp(pitch + e.movementY * 0.003, -0.1, 0.9); }
 });
-// タッチ：左半分＝移動スティック、右半分＝視点
 const joy = { id: null, sx: 0, sy: 0, dx: 0, dy: 0 }, look = { id: null, x: 0, y: 0 };
 view.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse') return;
@@ -621,49 +1149,45 @@ const endPtr = e => { if (e.pointerId === joy.id) { joy.id = null; joy.dx = joy.
 view.addEventListener('pointerup', endPtr); view.addEventListener('pointercancel', endPtr);
 $('tSneak').addEventListener('pointerdown', e => { e.preventDefault(); sneakToggle = !sneakToggle; $('tSneak').classList.toggle('on', sneakToggle); });
 $('tAct').addEventListener('pointerdown', e => { e.preventDefault(); doAction(); });
+function lockPointer() { try { const r = view.requestPointerLock?.(); r && r.catch && r.catch(() => {}); } catch (e) {} }
 
 // ================== 進行 ==================
-function lockPointer() { try { const r = view.requestPointerLock?.(); r && r.catch && r.catch(() => {}); } catch (e) {} }
-const START = { x: 3.9, z: 21.5 };
-function startGame(c) {
+function startGame(c, sIdx = stageIdx) {
   chara = c;
+  if (sIdx !== stageIdx || !STAGE) buildStage(sIdx);
   if (pl) scene.remove(pl.root);
   pl = (c.glb && REAL) ? REAL : makePerson({ ...c, bag: true });
   pl.crouchT = 0; camSnap = true;
   $('vignette').style.boxShadow = 'none'; $('mission').classList.remove('alert');
   scene.add(pl.root);
-  player = { x: START.x, z: START.z, face: 0, r: 0.3, speed: 0 };
-  yaw = Math.PI / 2; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null;
+  const st = STAGE.start;
+  player = { x: st.x, z: st.z, face: st.yaw === 0 ? Math.PI / 2 : st.yaw === Math.PI / 2 ? 0 : 0, r: 0.3, speed: 0 };
+  player.face = Math.atan2(Math.cos(st.yaw), Math.sin(st.yaw));
+  yaw = st.yaw; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null; exitTarget = null;
   spawnBosses();
-  if (elevBoss) { scene.remove(elevBoss.root); elevBoss = null; }
-  for (const e of ELEV) { e.open = 0; e.opening = false; }
-  // 顔アイコン
+  if (elevBoss) { G.remove(elevBoss.root); elevBoss = null; }
+  for (const e of STAGE.elevs) { e.open = 0; e.opening = false; }
   const g = $('mFace').getContext('2d'); g.clearRect(0, 0, 80, 80);
   if (c.photo && PHOTOS[c.photo]) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0, 80, 80); im.src = PHOTOS[c.photo]; }
   else drawFaceCanvas(g, 80, c);
   $('mWho').textContent = `${c.name} ｜ ${c.dept}`;
+  $('goal').textContent = STAGE.goal;
   $('dialog').style.display = 'none'; $('progress').style.display = 'none';
   hideOverlay(); state = 'play';
   if (matchMedia('(pointer: fine)').matches) lockPointer();
 }
 function drawFaceCanvas(g, s, c) { const t = drawnFaceTexture(c); g.drawImage(t.image, 0, 0, s, s); }
-
+const inZone = (z, x, y) => x > z[0] && x < z[2] && y > z[1] && y < z[3];
+function exitAt(x, z) { return STAGE.exits.find(e => inZone(e.zone, x, z)) || null; }
 function doAction() {
-  const z = zoneAt(player.x, player.z);
-  if (z === 'stairs') return escape('非常階段で脱出');
-  if (z === 'elev' && elevWait < 0) { elevWait = 0; elevTarget = ELEV.reduce((a, e) => Math.abs(e.z - player.z) < Math.abs(a.z - player.z) ? e : a); }
-}
-function zoneAt(x, z) {
-  if (x > MAP_W - 1.6 && z > 2.6 && z < 8.4) return 'elev';
-  if (x > MAP_W - 1.6 && z > STAIRS.z0 - 0.4 && z < STAIRS.z1 + 0.4) return 'stairs';
-  return null;
+  const ex = exitAt(player.x, player.z); if (!ex) return;
+  if (ex.type === 'stairs') { exitTarget = ex.target; return escape('非常階段で脱出'); }
+  if (ex.type === 'elev' && elevWait < 0) { elevWait = 0; elevTarget = STAGE.elevs.reduce((a, e) => Math.hypot(e.x - player.x, e.z - player.z) < Math.hypot(a.x - player.x, a.z - player.z) ? e : a); }
 }
 
-let elevBoss = null;
 function update(dt) {
   gameSec += dt * 6;
   const crouch = keys['shift'] || keys['c'] || sneakToggle;
-  // 移動
   let f = 0, r = 0;
   if (keys['w'] || keys['arrowup']) f += 1; if (keys['s'] || keys['arrowdown']) f -= 1;
   if (keys['d'] || keys['arrowright']) r += 1; if (keys['a'] || keys['arrowleft']) r -= 1;
@@ -673,21 +1197,20 @@ function update(dt) {
   if (ml > 1) { mx /= ml; mz /= ml; }
   const sp = (crouch ? 1.25 : 2.5) * chara.speed;
   if (elevWait >= 0) { mx = mz = 0; }
-  if (ml > 0.05) {
+  if (ml > 0.05 && elevWait < 0) {
     player.x += mx * sp * dt; player.z += mz * sp * dt; resolveCollision(player, player.r);
     const want = Math.atan2(mz, mx); player.face += angDiff(want, player.face) * Math.min(1, dt * 12);
   }
-  player.speed = ml > 0.05 ? sp * Math.min(1, ml) : 0;
+  player.speed = ml > 0.05 && elevWait < 0 ? sp * Math.min(1, ml) : 0;
   pl.root.position.set(player.x, 0, player.z); pl.root.rotation.y = Math.PI / 2 - player.face;
   animatePerson(pl, dt, player.speed, crouch);
 
-  // 上司
   let maxSus = 0, seer = null;
   for (const b of bosses) {
     const dx = player.x - b.x, dz = player.z - b.z, d = Math.hypot(dx, dz), toP = Math.atan2(dz, dx);
     const range = b.range * (crouch ? 0.75 : 1);
     const inCone = d < range && Math.abs(angDiff(toP, b.ang)) < b.fov / 2 && lineOfSight(b.x, b.z, player.x, player.z, crouch);
-    const bump = d < 1.0;
+    const bump = d < 1.0 && lineOfSight(b.x, b.z, player.x, player.z, false);
     if (inCone || bump) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
     else b.sus = Math.max(0, b.sus - D().decay * dt);
     if (b.sus > maxSus) { maxSus = b.sus; seer = b; }
@@ -710,42 +1233,39 @@ function update(dt) {
     updateCone(b, crouch);
   }
   meter = maxSus;
-  if (meter >= 1) return caught(seer, pick(BOSS_LINES[seer.name]));
+  if (meter >= 1) return caught(seer, pick(BOSS_LINES[seer.name] || BOSS_LINES['課長']));
 
-  // エレベーター
+  const ex = exitAt(player.x, player.z);
+  if (ex && ex.type === 'door') { exitTarget = ex.target; return escape('正面玄関から脱出'); }
   if (elevWait >= 0) {
-    if (zoneAt(player.x, player.z) !== 'elev') { elevWait = -1; }
+    if (!ex || ex.type !== 'elev') { elevWait = -1; }
     else {
       elevWait += dt;
       $('progress').style.display = 'block'; $('pText').textContent = 'エレベーター待ち…（中に上司がいるかも）';
       $('pFill').style.width = Math.min(100, elevWait / 4 * 100) + '%';
       if (elevWait >= 4) {
         elevTarget.opening = true;
+        const ix = elevTarget.x - Math.sin(elevTarget.ry) * 0.9, iz = elevTarget.z - Math.cos(elevTarget.ry) * 0.9;
         if (Math.random() < D().elevRisk) {
           elevBoss = makePerson({ shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
-          elevBoss.root.position.set(MAP_W + 0.9, 0, elevTarget.z); elevBoss.root.rotation.y = -Math.PI / 2; scene.add(elevBoss.root);
-          const fake = { name: '本部長', x: MAP_W + 0.9, z: elevTarget.z, p: elevBoss };
+          elevBoss.root.position.set(ix, 0, iz); elevBoss.root.rotation.y = elevTarget.ry; G.add(elevBoss.root);
+          const fake = { name: '本部長', x: ix, z: iz, p: elevBoss };
           elevWait = -1; $('progress').style.display = 'none';
           return caught(fake, BOSS_LINES['本部長'][0], 0.9);
         }
+        exitTarget = [ix, iz];
         elevWait = -1; $('progress').style.display = 'none';
         return escape('エレベーターで脱出', 0.9);
       }
     }
   }
   if (elevWait < 0) $('progress').style.display = 'none';
-  updateHud(crouch);
-}
-function placeBoss(b, dt, moving) {
-  b.p.root.position.set(b.x, 0, b.z); b.p.root.rotation.y = Math.PI / 2 - b.ang;
-  animatePerson(b.p, dt, moving, false, b.sweep ? 'smoke' : null);
-  b.mark.position.set(b.x, 2.3, b.z); b.mark.visible = b.sus > 0.05 || (state === 'caught' && caughtBy === b);
-  b.tag.position.set(b.x, 2.02, b.z); b.tag.visible = state === 'play';
+  updateHud(crouch, ex);
 }
 
-function updateHud(crouch) {
+function updateHud(crouch, ex) {
   $('time').textContent = fmt(gameSec);
-  $('loc').textContent = player.x > OFFICE_W ? '本社・エレベーターホール' : '本社・営業フロア';
+  $('loc').textContent = `${STAGE.floor}・${STAGE.locName(player.x, player.z)}`;
   const lab = $('stLabel');
   lab.textContent = meter > 0.6 ? '気づかれそう！' : meter > 0.05 ? '視線を感じる…' : (crouch ? 'しゃがみ中・未発見' : '未発見');
   lab.className = meter > 0.6 ? 'bad' : meter > 0.05 ? 'warn' : '';
@@ -753,15 +1273,13 @@ function updateHud(crouch) {
   $('vignette').style.boxShadow = `inset 0 0 ${120 + meter * 120}px rgba(255,40,40,${meter * 0.55})`;
   $('mission').classList.toggle('alert', meter > 0.6);
   $('mSub').textContent = meter > 0.6 ? '上司に気づかれかけている！' : '上司に見つからずに会社を出る';
-  const z = zoneAt(player.x, player.z);
-  let h = '会社の外へ（エレベーター or 非常階段）';
-  if (z === 'elev') h = elevWait >= 0 ? 'エレベーターを待っている…' : 'E：エレベーターを呼ぶ（上司と鉢合わせの危険）';
-  else if (z === 'stairs') h = 'E：非常階段で帰る';
+  let h = STAGE.goal.replace('目標：', '');
+  if (ex) h = ex.type === 'elev' && elevWait >= 0 ? 'エレベーターを待っている…' : ex.label;
   else if (meter > 0.05) h = '視線が外れるのを待つ／しゃがんで机に隠れる';
   else if (crouch) h = '机の陰に身を隠している';
-  else if (player.x < OFFICE_W) h = 'Shift：しゃがむと机の陰に隠れられる';
+  else h = 'Shift：しゃがむと机の陰に隠れられる（ガラスは丸見え）';
   $('hintText').textContent = h;
-  $('tAct').style.display = z ? 'block' : 'none';
+  $('tAct').style.display = ex && ex.type !== 'door' ? 'block' : 'none';
   drawMinimap();
 }
 const fmt = s => { const t = 17 * 3600 + 59 * 60 + Math.floor(s); return String(Math.floor(t / 3600)).padStart(2, '0') + ':' + String(Math.floor(t % 3600 / 60)).padStart(2, '0'); };
@@ -772,10 +1290,9 @@ function drawMinimap() {
   mm.save(); mm.beginPath(); mm.arc(S / 2, S / 2, S / 2, 0, 7); mm.clip();
   mm.fillStyle = 'rgba(30,34,40,.9)'; mm.fillRect(0, 0, S, S);
   mm.translate(S / 2, S / 2); mm.rotate(yaw - Math.PI); mm.translate(-player.x * sc, -player.z * sc);
-  mm.fillStyle = 'rgba(70,76,86,1)'; mm.fillRect(0, 0, MAP_W * sc, MAP_D * sc);
-  for (const b of OBST) { if (b.kind === 'chair') continue; mm.fillStyle = b.kind === 'desk' ? '#8a6a4c' : '#c9c6bf'; mm.fillRect(b.x0 * sc, b.z0 * sc, (b.x1 - b.x0) * sc, (b.z1 - b.z0) * sc); }
-  mm.fillStyle = '#3ad17a'; for (const e of ELEV) mm.fillRect((MAP_W - 0.5) * sc, (e.z - 0.55) * sc, 0.5 * sc, 1.1 * sc);
-  mm.fillRect((MAP_W - 0.5) * sc, STAIRS.z0 * sc, 0.5 * sc, (STAIRS.z1 - STAIRS.z0) * sc);
+  mm.fillStyle = 'rgba(70,76,86,1)'; mm.fillRect(0, 0, STAGE.W * sc, STAGE.D * sc);
+  for (const b of OBST) { if (b.kind === 'chair') continue; mm.fillStyle = b.kind === 'desk' ? '#8a6a4c' : b.kind === 'glass' ? '#7fb8d6' : '#c9c6bf'; mm.fillRect(b.x0 * sc, b.z0 * sc, Math.max(1.5, (b.x1 - b.x0) * sc), Math.max(1.5, (b.z1 - b.z0) * sc)); }
+  mm.fillStyle = '#3ad17a'; for (const e of STAGE.exits) mm.fillRect(e.zone[0] * sc, e.zone[1] * sc, (e.zone[2] - e.zone[0]) * sc, (e.zone[3] - e.zone[1]) * sc);
   for (const b of bosses) {
     mm.fillStyle = b.sus > 0.05 ? 'rgba(255,90,95,.35)' : 'rgba(242,201,76,.3)';
     mm.beginPath(); mm.moveTo(b.x * sc, b.z * sc); mm.arc(b.x * sc, b.z * sc, b.range * sc, b.ang - b.fov / 2, b.ang + b.fov / 2); mm.closePath(); mm.fill();
@@ -791,29 +1308,28 @@ function caught(b, line, delay = 0) {
   $('mission').classList.add('alert'); $('mSub').textContent = '上司に見つかった！';
   $('stLabel').textContent = '見つかった'; $('stLabel').className = 'bad'; $('meterFill').style.width = '100%';
   if (b.mark) { b.mark.material.map = labelSprite('！', '#ff5a5f').material.map; b.mark.visible = true; }
-  if (b.ang !== undefined) b.ang = Math.atan2(player.z - b.z, player.x - b.x);
+  if (b.ang !== undefined && !b.pose) b.ang = Math.atan2(player.z - b.z, player.x - b.x);
   player.face = Math.atan2(b.z - player.z, b.x - player.x);
   setTimeout(() => showDialog(b.name, line), delay * 1000 + 600);
   setTimeout(() => showDialog(chara.name, '……はい。'), delay * 1000 + 3000);
   setTimeout(() => {
     $('dialog').style.display = 'none';
     const [a, bb] = pick(FAIL_TEXTS);
-    overlay(`<h1 class="fail">定時退社 失敗</h1><p class="big">${a}</p><p>${bb}</p><p style="opacity:.7">現在時刻 ${fmt(gameSec + 3600)}　残業中</p>
-      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">難易度・キャラを変える</button>`);
+    overlay(`<h1 class="fail">定時退社 失敗</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}</p><p class="big">${a}</p><p>${bb}</p><p style="opacity:.7">現在時刻 ${fmt(gameSec + 3600)}　残業中</p>
+      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">ステージ・難易度を変える</button>`);
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
   }, delay * 1000 + 5000);
 }
 function escape(how, delay = 0) {
   state = 'escape'; cutT = 0; document.exitPointerLock?.();
-  if (elevTarget && how.includes('エレベーター')) elevTarget.opening = true;
   setTimeout(() => {
     const over = gameSec / 60;
     const rank = over <= 3 ? ['S', '伝説の定時退社者'] : over <= 5 ? ['A', '華麗なる定時退社'] : over <= 8 ? ['B', 'ほぼ定時'] : ['C', '定時…とは'];
-    overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">難易度：${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
+    overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
       <p>ランク <b style="font-size:28px;color:#f2c94c">${rank[0]}</b>　${rank[1]}</p><p style="opacity:.75">今日はもう、仕事のことは考えない。</p>
-      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">難易度・キャラを変える</button>`);
+      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">ステージ・難易度を変える</button>`);
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
-  }, delay * 1000 + 1600);
+  }, delay * 1000 + 1700);
 }
 function showDialog(n, l) { $('dName').textContent = n; $('dLine').textContent = l; $('dialog').style.display = 'block'; }
 
@@ -821,20 +1337,21 @@ function showDialog(n, l) { $('dName').textContent = n; $('dLine').textContent =
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 let camSnap = true;
 function updateCamera(dt) {
-  if (!player) { // タイトル中はオフィスをゆっくり見回す
-    const t = performance.now() / 9000;
-    camera.position.set(14 + Math.sin(t) * 6, 2.1, 22); camera.lookAt(14 + Math.sin(t + 1) * 4, 1.0, 8); return;
+  if (!player || state === 'title' || state === 'select') {
+    const t = performance.now() / 12000, S = STAGE;
+    camera.position.set(S.W * 0.5 + Math.sin(t) * S.W * 0.22, Math.min(2.0, S.H - 0.4), S.D * 0.82);
+    camera.lookAt(S.W * 0.5 + Math.sin(t + 1) * S.W * 0.15, 1.0, S.D * 0.3); return;
   }
   const head = new THREE.Vector3(player.x, 1.45 - pl.crouchT * 0.45, player.z);
   if (state === 'caught' && caughtBy) {
     cutT += dt;
     const b = caughtBy, mid = new THREE.Vector3((player.x + b.x) / 2, 1.5, (player.z + b.z) / 2);
     const dx = b.x - player.x, dz = b.z - player.z, l = Math.hypot(dx, dz) || 1;
-    let sx = -dz / l, sz = dx / l;
+    const sx = -dz / l, sz = dx / l;
     const tryPos = s => new THREE.Vector3(mid.x + sx * s * 2.4 - dx / l * 0.9, 1.65, mid.z + sz * s * 2.4 - dz / l * 0.9);
     let target = tryPos(1);
-    if (target.x < 0.4 || target.x > MAP_W - 0.4 || target.z < 0.4 || target.z > MAP_D - 0.4) target = tryPos(-1);
-    camPos.lerp(target, Math.min(1, dt * 3)); camLook.lerp(new THREE.Vector3(b.x * 0.65 + player.x * 0.35, 1.55, b.z * 0.65 + player.z * 0.35), Math.min(1, dt * 3));
+    if (hitsAny(target.x, target.z, 0.2) || target.x < 0.3 || target.z < 0.3 || target.x > STAGE.W - 0.3 || target.z > STAGE.D - 0.3) target = tryPos(-1);
+    camPos.lerp(target, Math.min(1, dt * 3)); camLook.lerp(new THREE.Vector3(b.x * 0.65 + player.x * 0.35, b.pose === 'sit' ? 1.2 : 1.55, b.z * 0.65 + player.z * 0.35), Math.min(1, dt * 3));
     camera.position.copy(camPos); camera.lookAt(camLook); return;
   }
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
@@ -843,49 +1360,45 @@ function updateCamera(dt) {
   const hit = rayDist(player.x, player.z, back, dist, o => o.kind === 'wall' || (o.kind === 'tall' && o.h > 2));
   dist = Math.max(0.6, Math.min(dist, hit - 0.25));
   const target = new THREE.Vector3(player.x - fx * dist * Math.cos(pitch), head.y + 0.35 + Math.sin(pitch) * dist, player.z - fz * dist * Math.cos(pitch));
-  target.y = Math.min(target.y, CEIL - 0.15);
+  target.y = Math.min(target.y, STAGE.H - 0.15);
   if (camSnap) { camPos.copy(target); camLook.copy(head); camSnap = false; }
   camPos.lerp(target, Math.min(1, dt * 12)); camLook.lerp(head, Math.min(1, dt * 14));
   camera.position.copy(camPos); camera.lookAt(camLook.x + fx * 0.6, camLook.y, camLook.z + fz * 0.6);
 }
 
-// ================== 画面（タイトル・キャラ選択） ==================
+// ================== 画面（タイトル・選択） ==================
 function overlay(html, photo = false) {
   const o = $('overlay'); $('ovBox').innerHTML = html; o.style.display = 'flex';
   o.classList.toggle('photo', photo && !!PHOTOS.office); if (PHOTOS.office) o.style.setProperty('--bg', `url(${PHOTOS.office})`);
 }
 function hideOverlay() { $('overlay').style.display = 'none'; }
 function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+let selStage = 0;
 function showSelect() {
   state = 'select';
-  const cards = CHARACTERS.map((c, i) => {
-    let img;
-    if (c.photo && PHOTOS[c.photo]) img = `<img class="face" src="${PHOTOS[c.photo]}">`;
-    else { const cv = document.createElement('canvas'); cv.width = cv.height = 256; drawFaceCanvas(cv.getContext('2d'), 256, c); img = `<img class="face" src="${cv.toDataURL()}">`; }
-    return `<div class="card" data-i="${i}">${img}<div class="nm">${c.name}</div><div class="dp">${c.dept}</div>
-      <div class="st">足の速さ <b>${stars(c.stars[0])}</b><br>気配の消し方 <b>${stars(c.stars[1])}</b></div><div class="ds">${c.desc}</div></div>`;
-  }).join('');
+  const c = CHARACTERS[0];
+  const face = c.photo && PHOTOS[c.photo] ? `<img class="face sm" src="${PHOTOS[c.photo]}">` : '';
+  const stageCards = STAGES.map((s, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${s.floor}</div><div class="snm">${s.name}</div><div class="sds">${s.desc}</div></div>`).join('');
   const diffs = Object.entries(DIFFS).map(([k, d]) => `<button class="diff${k === diffKey ? ' sel' : ''}" data-k="${k}">${d.label}</button>`).join('');
-  overlay(`<h1>キャラクターを選ぶ</h1><p>今日、定時で帰るのは誰だ。</p><div class="cards">${cards}</div>
+  const qs = [['high', '高画質'], ['low', '軽量']].map(([k, l]) => `<button class="qual${k === quality ? ' sel' : ''}" data-q="${k}">${l}</button>`).join('');
+  overlay(`<h1>今日の退社ルート</h1>
+    <div class="who">${face}<div><div class="nm">${c.name}</div><div class="dp">${c.dept}　足の速さ <b>${stars(c.stars[0])}</b>　気配の消し方 <b>${stars(c.stars[1])}</b></div></div></div>
+    <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div>
     <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
+    <div class="diffs"><div class="dlab">画質</div><div class="drow">${qs}</div></div>
     <button class="btn" id="bGo">退社する</button>
     <p class="keys">PC：WASDで移動・マウスで視点・Shiftでしゃがむ・Eで調べる ／ スマホ：左で移動・右で視点・ボタンでしゃがむ</p>`, true);
-  let selChar = Math.max(0, CHARACTERS.indexOf(chara));
-  const cardsEl = document.querySelectorAll('.card');
-  const markCard = () => cardsEl.forEach(el => el.classList.toggle('sel', +el.dataset.i === selChar));
-  cardsEl.forEach(el => el.onclick = () => { selChar = +el.dataset.i; markCard(); });
-  markCard();
-  document.querySelectorAll('.diff').forEach(el => el.onclick = () => {
-    diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc;
-  });
-  $('bGo').onclick = () => startGame(CHARACTERS[selChar]);
+  document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
+  document.querySelectorAll('.diff').forEach(el => el.onclick = () => { diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc; });
+  document.querySelectorAll('.qual').forEach(el => el.onclick = () => { quality = el.dataset.q; localStorage.setItem('teiji-quality', quality); document.querySelectorAll('.qual').forEach(x => x.classList.toggle('sel', x === el)); onResize(); });
+  $('bGo').onclick = () => { $('bGo').textContent = '読み込み中…'; setTimeout(() => startGame(CHARACTERS[0], selStage), 30); };
 }
 function showTitle() {
   state = 'title';
   overlay(`<h1>定時退社シミュレーター</h1><p class="big">17:59。今日こそ、定時で帰る。</p>
     <p>上司の視界（足もとの黄色い扇形）に入ると気づかれる。<br>メーターが満タンになると「ちょっといい？」が始まる。</p>
-    <p>机のあいだは<b>しゃがめば</b>見つかりにくい。エレベーターは早いが、誰が乗っているかわからない。</p>
-    <button class="btn" id="bStart">キャラを選ぶ</button>`, true);
+    <p>机の陰は<b>しゃがめば</b>見つかりにくい。ガラスの壁は視線を通すので要注意。</p>
+    <button class="btn" id="bStart">はじめる</button>`, true);
   $('bStart').onclick = showSelect;
 }
 
@@ -896,23 +1409,57 @@ function loop(now) {
   if (state === 'play') update(dt);
   else if (state === 'caught' || state === 'escape') {
     if (pl) animatePerson(pl, dt, 0, false);
-    for (const b of bosses) { placeBoss(b, dt, 0); }
-    if (pl) pl.root.rotation.y = Math.PI / 2 - player.face;
+    for (const b of bosses) placeBoss(b, dt, 0);
+    if (pl && state === 'caught') pl.root.rotation.y = Math.PI / 2 - player.face;
   }
-  for (const e of ELEV) {
-    e.open += ((e.opening ? 1 : 0) - e.open) * Math.min(1, dt * 2.5);
-    e.l.position.z = e.z - 0.275 - e.open * 0.5; e.r.position.z = e.z + 0.275 + e.open * 0.5;
+  if (STAGE) {
+    for (const e of STAGE.elevs) {
+      e.open += ((e.opening ? 1 : 0) - e.open) * Math.min(1, dt * 2.5);
+      e.l.position.x = -0.275 - e.open * 0.5; e.r.position.x = 0.275 + e.open * 0.5; e.cl.intensity = e.open * 1.6;
+    }
+    if (STAGE.autoDoors && player) {
+      const near = Math.hypot(player.x - 17, player.z - STAGE.D) < 4 ? 1 : 0;
+      STAGE.autoDoors.forEach((d, i) => { const tgt = 14.5 + 0.625 + i * 1.25 + (i < 2 ? -1 : 1) * near * 1.3; d.position.x += (tgt - d.position.x) * Math.min(1, dt * 4); });
+    }
   }
-  if (state === 'escape' && pl) { // 歩いて出ていく
-    const tz = elevTarget && elevWait < 0 && ELEV.some(e => e.opening) ? ELEV.find(e => e.opening).z : (STAIRS.z0 + STAIRS.z1) / 2;
-    player.x += (MAP_W + 0.8 - player.x) * Math.min(1, dt * 0.9); player.z += (tz - player.z) * Math.min(1, dt * 2);
-    player.face = 0; pl.root.position.set(player.x, 0, player.z); pl.root.rotation.y = Math.PI / 2; animatePerson(pl, dt, 2, false);
+  if (state === 'escape' && pl && exitTarget) {
+    const dx = exitTarget[0] - player.x, dz = exitTarget[1] - player.z, d = Math.hypot(dx, dz);
+    if (d > 0.05) { const s = Math.min(d, 1.8 * dt); player.x += dx / d * s; player.z += dz / d * s; player.face = Math.atan2(dz, dx); }
+    pl.root.position.set(player.x, 0, player.z); pl.root.rotation.y = Math.PI / 2 - player.face; animatePerson(pl, dt, d > 0.05 ? 1.8 : 0, false);
   }
   updateCamera(dt);
-  renderer.render(scene, camera);
+  renderFrame();
   requestAnimationFrame(loop);
 }
-window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; } };
+
+// ================== 検証（開発用） ==================
+window.__validate = () => {
+  const out = [];
+  STAGES.forEach((S, i) => {
+    buildStage(i);
+    const st = STAGE.start; const rep = { stage: S.id, startOK: !hitsAny(st.x, st.z, 0.3), bossProblems: [], exits: [] };
+    for (const b of S.bosses) {
+      for (let k = 0; k < b.path.length; k++) {
+        const p = b.path[k], n = b.path[(k + 1) % b.path.length];
+        const L = Math.hypot(n[0] - p[0], n[1] - p[1]), steps = Math.max(1, Math.ceil(L / 0.2));
+        for (let t = 0; t <= steps; t++) { const x = p[0] + (n[0] - p[0]) * t / steps, z = p[1] + (n[1] - p[1]) * t / steps;
+          if (b.pose !== 'sit' && hitsAny(x, z, 0.25)) { rep.bossProblems.push(`${b.name} @(${x.toFixed(1)},${z.toFixed(1)})`); break; } }
+      }
+    }
+    const cs = 0.25, nx = Math.ceil(S.W / cs), nz = Math.ceil(S.D / cs), seen = new Uint8Array(nx * nz), q = [];
+    const free = (i, j) => !hitsAny(i * cs + cs / 2, j * cs + cs / 2, 0.3);
+    const si = Math.floor(st.x / cs), sj = Math.floor(st.z / cs); seen[sj * nx + si] = 1; q.push([si, sj]);
+    while (q.length) { const [a, c] = q.pop(); for (const [da, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a2 = a + da, c2 = c + dc; if (a2 < 0 || c2 < 0 || a2 >= nx || c2 >= nz) continue; const k = c2 * nx + a2; if (seen[k]) continue; if (!free(a2, c2)) { seen[k] = 2; continue; } seen[k] = 1; q.push([a2, c2]); } }
+    for (const e of STAGE.exits) { let ok = false; for (let j = 0; j < nz && !ok; j++) for (let ii = 0; ii < nx; ii++) { const x = ii * cs + cs / 2, z = j * cs + cs / 2; if (seen[j * nx + ii] === 1 && inZone(e.zone, x, z)) { ok = true; break; } } rep.exits.push(e.type + ':' + ok); }
+    out.push(rep);
+  });
+  buildStage(0);
+  return out;
+};
+window.__setYaw = v => { yaw = v; camSnap = true; };
+window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; } };
+
+buildStage(0);
 showTitle();
 requestAnimationFrame(loop);
 </script>

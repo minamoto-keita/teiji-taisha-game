@@ -42,6 +42,7 @@
   .box h1.fail { color: #ff5a5f; }
   .box p { margin-top: 10px; line-height: 1.7; font-size: 14px; }
   .box .big { font-size: 18px; font-weight: 700; }
+  .btn:disabled { opacity: .55; cursor: wait; }
   .btn { margin-top: 18px; font: inherit; font-weight: 800; font-size: 16px; padding: 11px 28px; background: #f2c94c; color: #111;
     border: 0; border-radius: 4px; cursor: pointer; }
   .btn.sub { background: transparent; color: #ecebe6; border: 1px solid rgba(255,255,255,.3); margin-left: 8px; }
@@ -100,11 +101,13 @@
 
 <script src="faces.js"></script>
 <script src="model.js"></script>
+<script src="npc.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
 <script type="module">
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -737,7 +740,7 @@ function makePerson(o) {
   return { root, body, upper, legs, arms, head, phase: Math.random() * 6, crouchT: 0 };
 }
 function animatePerson(p, dt, moveSpeed, crouch, pose) {
-  if (p.animate) return p.animate(dt, moveSpeed, crouch);
+  if (p.animate) return p.animate(dt, moveSpeed, crouch, pose);
   p.crouchT += ((crouch ? 1 : 0) - p.crouchT) * Math.min(1, dt * 10);
   const c = p.crouchT;
   if (pose === 'sit') {
@@ -767,6 +770,65 @@ function labelSprite(text, color = '#ffffff', size = 0.5) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(size * 2, size, 1); s.renderOrder = 10; return s;
 }
 
+
+
+// ================== リアルな上司・同僚（Mixamoのキャラ） ==================
+const NPC = { ready: false, tpl: {}, clips: [], hipsY: 1 };
+async function loadNPCs() {
+  if (!window.NPC_GLB || !window.NPC_CLIPS) return;
+  NPC.hipsY = window.NPC_CLIPS.hipsY;
+  NPC.clips = window.NPC_CLIPS.clips.map(j => THREE.AnimationClip.parse(j));
+  for (const [name, b64] of Object.entries(window.NPC_GLB)) {
+    const bin = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0)).buffer;
+    const g = await new Promise((res, rej) => new GLTFLoader().parse(bin, '', res, rej));
+    let hips = null; g.scene.traverse(o => { if (o.isBone && /Hips$/.test(o.name) && !hips) hips = o; o.frustumCulled = false; if (o.isMesh) { o.castShadow = true; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); } });
+    g.scene.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(g.scene);
+    const pre = hips.name.replace(/Hips$/, ''), ratio = hips.position.y / NPC.hipsY;
+    const clips = NPC.clips.map(c => {
+      const cc = c.clone();
+      for (const t of cc.tracks) {
+        t.name = t.name.replace(/^mixamorig/, pre);
+        if (t.name === hips.name + '.position') {
+          const v = t.values = t.values.slice();
+          for (let i = 0; i < v.length; i += 3) { v[i] = hips.position.x; v[i + 1] *= ratio; v[i + 2] = cc.name === 'sit' ? v[i + 2] * ratio : hips.position.z; }
+        }
+      }
+      return cc;
+    });
+    NPC.tpl[name] = { scene: g.scene, h: bb.max.y - bb.min.y, clips };
+  }
+  NPC.ready = true;
+}
+const NPC_LOOK = { kakaricho: ['Leonard', 1.74], kacho: ['Josh', 1.76], bucho: ['Joe', 1.73], jicho: ['Leonard', 1.70], shunin: ['Josh', 1.72], senmu: ['Joe', 1.75],
+  jomu: ['Josh', 1.78], hisho: ['Ch07', 1.62], shacho: ['Joe', 1.71], shitsucho: ['Leonard', 1.77], keibi: ['Josh', 1.80], honbu: ['Joe', 1.74] };
+function makeNPC(name, height) {
+  const t = NPC.tpl[name]; if (!t) return null;
+  const model = SkeletonUtils.clone(t.scene); model.scale.setScalar(height / t.h);
+  const root = new THREE.Group(); root.add(model);
+  const mixer = new THREE.AnimationMixer(model), A = {};
+  for (const c of t.clips) { const a = mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); A[c.name] = a; }
+  for (const k in A) A[k].time = Math.random() * A[k].getClip().duration;
+  const W = { idle: 1, walk: 0, look: 0, sit: 0, smoke: 0, phone: 0 };
+  const p = { root, npc: true, crouchT: 0, phase: 0 };
+  p.animate = (dt, speed, crouch, pose) => {
+    const want = p.forcePose || (pose === 'sit' ? 'sit' : pose === 'smoke' ? 'smoke' : pose === 'phone' ? 'phone' : speed > 0.1 ? 'walk' : p.wait ? 'look' : 'idle');
+    const k = dt <= 0 ? 1 : Math.min(1, dt * 6);
+    for (const n in W) { W[n] += ((n === want ? 1 : 0) - W[n]) * k; if (A[n]) A[n].setEffectiveWeight(W[n]); }
+    if (A.walk) A.walk.timeScale = clamp(speed / 1.3, 0.6, 1.8);
+    mixer.update(Math.max(dt, 0));
+  };
+  p.animate(0, 0, false, null);
+  return p;
+}
+function makeStaff(lookKey, fallback) {
+  const m = NPC.ready && NPC_LOOK[lookKey] && makeNPC(...NPC_LOOK[lookKey]);
+  return m || makePerson(fallback || LOOK[lookKey]);
+}
+function makeCoworker(fallback) {
+  if (NPC.ready) { const names = Object.keys(NPC.tpl); const n = pick(names); return makeNPC(n, /Ch0|Ch2/.test(n) ? 1.58 + Math.random() * 0.08 : 1.68 + Math.random() * 0.1); }
+  return makePerson(fallback);
+}
 
 // ================== 等身大リアルキャラ（写真から作った3Dモデルに脚の関節を入れる） ==================
 let REAL = null;
@@ -861,8 +923,11 @@ async function loadRiggedCharacter() {
     wasDefeated = p.defeated;
     p.defT += ((p.defeated ? 1 : 0) - p.defT) * Math.min(1, dt * 5);
     const c = p.crouchT, m = p.moveT, k = 1 - p.defT;
+    p.runT = (p.runT || 0) + ((speed > 3.2 ? 1 : 0) - (p.runT || 0)) * Math.min(1, dt * 8);
+    const rn = A.run ? p.runT : 0;
     A.idle.setEffectiveWeight((1 - c) * (1 - m) * k);
-    A.walk.setEffectiveWeight((1 - c) * m * k);
+    A.walk.setEffectiveWeight((1 - c) * m * (1 - rn) * k);
+    if (A.run) { A.run.setEffectiveWeight((1 - c) * m * rn * k); A.run.timeScale = clamp(speed / 4.2, 0.8, 1.4); }
     A.cidle.setEffectiveWeight(c * (1 - m) * k);
     A.cwalk.setEffectiveWeight(c * m * k);
     A.defeat.setEffectiveWeight(p.defT);
@@ -873,7 +938,8 @@ async function loadRiggedCharacter() {
   p.animate(0, 0, false);
   return p;
 }
-(window.MODEL_RIGGED ? loadRiggedCharacter() : loadRealCharacter()).then(r => { REAL = r; window.__real = !!r; }).catch(e => { console.error('3Dモデル読み込み失敗', e); window.__real = false; });
+loadNPCs().then(() => { window.__npc = NPC.ready; if (STAGE && state !== 'play') buildStage(stageIdx); }).catch(e => { console.error('上司モデル読み込み失敗', e); window.__npc = false; }).finally(() => modelsLoaded());
+(window.MODEL_RIGGED ? loadRiggedCharacter() : loadRealCharacter()).then(r => { REAL = r; window.__real = !!r; }).catch(e => { console.error('3Dモデル読み込み失敗', e); window.__real = false; }).finally(() => modelsLoaded());
 
 // ================== 難易度 ==================
 const DIFFS = {
@@ -1121,7 +1187,8 @@ function buildStage(idx) {
   const coworkers = [];
   for (const si of info.sitters) {
     const s = info.seats[si]; if (!s) continue;
-    const p = makePerson({ shirt: pick(['#dfe6ee', '#f2f2f0', '#2f3540', '#d9cfc0', '#e8d6d6']), pants: '#2b2b2f', hair: pick(['#1b1b1b', '#3a2a20']), style: pick(['short', 'bob', 'long']), smile: Math.random() < .5, jacket: Math.random() < .4 ? pick(['#2e3440', '#3d3f45']) : null });
+    const p = makeCoworker({ shirt: pick(['#dfe6ee', '#f2f2f0', '#2f3540', '#d9cfc0', '#e8d6d6']), pants: '#2b2b2f', hair: pick(['#1b1b1b', '#3a2a20']), style: pick(['short', 'bob', 'long']), smile: Math.random() < .5, jacket: Math.random() < .4 ? pick(['#2e3440', '#3d3f45']) : null });
+    if (p.npc) G.userData.anim = (G.userData.anim || []).concat([p]);
     p.root.position.set(s.x, 0, s.z); p.root.rotation.y = Math.PI / 2 - s.face; G.add(p.root); animatePerson(p, 0, 0, false, 'sit');
     const say = speechSprite('お疲れさまでーす！'); say.visible = false; say.position.set(s.x, 1.75, s.z); G.add(say);
     coworkers.push({ x: s.x, z: s.z, p, say, cool: 0, sayT: 0 });
@@ -1138,7 +1205,7 @@ let bosses = [], bossLayer = new THREE.Group(); scene.add(bossLayer);
 function spawnBosses() {
   scene.remove(bossLayer); bossLayer = new THREE.Group(); scene.add(bossLayer);
   bosses = STAGE.bosses.filter(d => !d.hardOnly || D().extra).map(d => {
-    const p = makePerson(LOOK[d.look]);
+    const p = makeStaff(d.look);
     const b = { ...d, p, x: d.path[0][0], z: d.path[0][1], wp: 1 % d.path.length, wait: d.path[0][2], look: 0, sus: 0,
       fov: 1.22 * D().fov, range: 9 * D().range, ang: 0, baseAng: 0 };
     b.speed = d.speed * D().speed;
@@ -1150,7 +1217,7 @@ function spawnBosses() {
     b.cone.renderOrder = 2; b.cone.frustumCulled = false; b.coneN = N;
     b.mark = labelSprite('？', '#f2c94c', 0.5); b.mark.visible = false;
     b.tag = labelSprite(d.name, '#ffffff', 0.32);
-    b.phone = 0; b.phoneTag = labelSprite('電話中…', '#7fd4ff', 0.42); b.phoneTag.visible = false;
+    b.phone = 0; b.phoneTag = speechSprite('📞 電話中…'); b.phoneTag.visible = false;
     bossLayer.add(p.root, b.cone, b.mark, b.tag, b.phoneTag);
     placeBoss(b, 0, 0);
     return b;
@@ -1170,7 +1237,7 @@ function updateCone(b, crouch) {
 }
 function placeBoss(b, dt, moving) {
   b.p.root.position.set(b.x, 0, b.z); b.p.root.rotation.y = Math.PI / 2 - b.ang;
-  animatePerson(b.p, dt, moving, false, b.pose || null);
+  b.p.wait = b.wait > 0; animatePerson(b.p, dt, moving, false, b.phone > 0 ? 'phone' : (b.pose || null));
   const top = b.pose === 'sit' ? 1.85 : 2.3;
   b.mark.position.set(b.x, top, b.z); b.mark.visible = b.sus > 0.05 || (state === 'caught' && caughtBy === b);
   if (b.phoneTag) { b.phoneTag.position.set(b.x, top + 0.05, b.z); b.phoneTag.visible = b.phone > 0 && state === 'play'; if (b.phoneTag.visible) b.mark.visible = false; }
@@ -1324,7 +1391,7 @@ function update(dt) {
         elevTarget.opening = true;
         const ix = elevTarget.x - Math.sin(elevTarget.ry) * 0.9, iz = elevTarget.z - Math.cos(elevTarget.ry) * 0.9;
         if (Math.random() < D().elevRisk) {
-          elevBoss = makePerson({ shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
+          elevBoss = makeStaff('honbu', { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
           elevBoss.root.position.set(ix, 0, iz); elevBoss.root.rotation.y = elevTarget.ry; G.add(elevBoss.root);
           const fake = { name: '本部長', x: ix, z: iz, p: elevBoss };
           elevWait = -1; $('progress').style.display = 'none';
@@ -1522,7 +1589,9 @@ function showTitle() {
     <p>机の陰は<b>しゃがめば</b>見つかりにくい。ガラスの壁は視線を通すので要注意。</p>
     <button class="btn" id="bStart">はじめる</button>`, true);
   $('bStart').onclick = showSelect;
+  if (window.__npc === undefined || window.__real === undefined) { $('bStart').disabled = true; $('bStart').textContent = '読み込み中…'; }
 }
+function modelsLoaded() { if (window.__npc !== undefined && window.__real !== undefined) { const b = $('bStart'); if (b) { b.disabled = false; b.textContent = 'はじめる'; } } }
 
 // ================== ループ ==================
 let last = performance.now();
@@ -1534,6 +1603,7 @@ function loop(now) {
     for (const b of bosses) placeBoss(b, dt, 0);
     if (pl && state === 'caught') pl.root.rotation.y = Math.PI / 2 - player.face;
   }
+  if (G.userData.anim) for (const p of G.userData.anim) animatePerson(p, dt, 0, false, 'sit');
   if (STAGE) {
     for (const e of STAGE.elevs) {
       e.open += ((e.opening ? 1 : 0) - e.open) * Math.min(1, dt * 2.5);

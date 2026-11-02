@@ -53,6 +53,12 @@
   .card .face { width: 100%; aspect-ratio: 1; border-radius: 6px; object-fit: cover; background: #2a2e35; display: block; }
   .card .nm { font-size: 20px; font-weight: 900; margin-top: 10px; } .card .dp { font-size: 12px; opacity: .7; }
   .card .st { font-size: 12px; margin-top: 8px; line-height: 1.8; } .card .st b { color: #f2c94c; letter-spacing: 2px; }
+  .diffs { margin-top: 22px; } .dlab { font-size: 12px; opacity: .7; letter-spacing: .1em; }
+  .drow { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+  .diff { font: inherit; font-weight: 800; font-size: 15px; padding: 9px 22px; border-radius: 4px; cursor: pointer;
+    background: transparent; color: #ecebe6; border: 1.5px solid rgba(255,255,255,.3); }
+  .diff.sel { background: #f2c94c; color: #111; border-color: #f2c94c; }
+  .ddesc { font-size: 13px; opacity: .85; margin-top: 10px; min-height: 1.6em; }
   .card .ds { font-size: 12px; opacity: .8; margin-top: 6px; line-height: 1.6; }
   #touch { display: none; }
   @media (pointer: coarse) {
@@ -519,6 +525,15 @@ async function loadRealCharacter() {
 }
 loadRealCharacter().then(r => { REAL = r; window.__real = !!r; }).catch(e => { console.error('3Dモデル読み込み失敗', e); window.__real = false; });
 
+// ================== 難易度 ==================
+const DIFFS = {
+  easy:   { label: 'やさしい', desc: '上司の視界が狭く、気づくのも遅い。エレベーターもほぼ安全。', range: 0.72, fov: 0.85, gain: 0.55, decay: 0.55, speed: 0.85, elevRisk: 0.2, extra: false },
+  normal: { label: 'ふつう', desc: '定時退社の標準。上司4人の目をかいくぐれ。', range: 1.0, fov: 1.0, gain: 1.0, decay: 0.32, speed: 1.0, elevRisk: 0.4, extra: false },
+  hard:   { label: 'むずかしい', desc: '視界が広く、すぐ気づかれる。主任も巡回中。エレベーターは危険。', range: 1.2, fov: 1.15, gain: 1.6, decay: 0.2, speed: 1.2, elevRisk: 0.65, extra: true },
+};
+let diffKey = 'normal';
+const D = () => DIFFS[diffKey];
+
 // ================== 上司・同僚 ==================
 const BOSS_DEFS = [
   { name: '係長', look: { shirt: '#f0f0ee', pants: '#33363b', hair: '#1a1a1a', style: 'short', jacket: null, glasses: true },
@@ -529,6 +544,8 @@ const BOSS_DEFS = [
     speed: 1.0, path: [[29.8, 8.5, 1.8], [37.8, 8.5, 1.5], [37.8, 18.2, 1.5], [29.8, 18.2, 1.8]] },
   { name: '次長', look: { shirt: '#ffffff', pants: '#2a2a2a', hair: '#b0b0b0', style: 'gray', jacket: null, mustache: true, cigarette: true },
     speed: 0, path: [[34.2, 24.6, 9999]], sweep: { center: -Math.PI / 2 + 0.25, amp: 1.25, speed: 0.55 } },
+  { name: '主任', hardOnly: true, look: { shirt: '#dfe9f3', pants: '#2c2f35', hair: '#1e1e1e', style: 'short', jacket: null },
+    speed: 1.2, path: [[1.6, 6.8, 1.5], [26, 6.8, 1.5]] },
 ];
 const COWORKERS = [[1, 'sit'], [9, 'sit'], [20, 'sit'], [27, 'sit'], [36, 'sit'], [44, 'sit'], [58, 'sit'], [71, 'sit'], [83, 'sit']];
 for (const [si] of COWORKERS) {
@@ -541,10 +558,11 @@ for (const [si] of COWORKERS) {
 let bosses = [];
 function spawnBosses() {
   for (const b of bosses) scene.remove(b.p.root, b.cone, b.mark, b.tag);
-  bosses = BOSS_DEFS.map(d => {
+  bosses = BOSS_DEFS.filter(d => !d.hardOnly || D().extra).map(d => {
     const p = makePerson(d.look);
     const b = { ...d, p, x: d.path[0][0], z: d.path[0][1], wp: 1 % d.path.length, wait: d.path[0][2], look: 0, sus: 0,
-      fov: 1.22, range: 9, ang: 0, baseAng: 0 };
+      fov: 1.22 * D().fov, range: 9 * D().range, ang: 0, baseAng: 0 };
+    b.speed = d.speed * D().speed;
     if (d.path.length > 1) { const n = d.path[b.wp]; b.ang = b.baseAng = Math.atan2(n[1] - b.z, n[0] - b.x); }
     if (d.sweep) b.ang = b.baseAng = d.sweep.center;
     const N = 40, geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((N + 2) * 3), 3));
@@ -611,7 +629,8 @@ function startGame(c) {
   chara = c;
   if (pl) scene.remove(pl.root);
   pl = (c.glb && REAL) ? REAL : makePerson({ ...c, bag: true });
-  pl.crouchT = 0;
+  pl.crouchT = 0; camSnap = true;
+  $('vignette').style.boxShadow = 'none'; $('mission').classList.remove('alert');
   scene.add(pl.root);
   player = { x: START.x, z: START.z, face: 0, r: 0.3, speed: 0 };
   yaw = Math.PI / 2; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null;
@@ -669,8 +688,8 @@ function update(dt) {
     const range = b.range * (crouch ? 0.75 : 1);
     const inCone = d < range && Math.abs(angDiff(toP, b.ang)) < b.fov / 2 && lineOfSight(b.x, b.z, player.x, player.z, crouch);
     const bump = d < 1.0;
-    if (inCone || bump) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (crouch ? 0.7 : 1) / chara.stealth) * dt);
-    else b.sus = Math.max(0, b.sus - 0.32 * dt);
+    if (inCone || bump) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
+    else b.sus = Math.max(0, b.sus - D().decay * dt);
     if (b.sus > maxSus) { maxSus = b.sus; seer = b; }
     let moving = 0;
     if (b.sus > 0.25) b.ang += angDiff(toP, b.ang) * Math.min(1, dt * 3);
@@ -702,7 +721,7 @@ function update(dt) {
       $('pFill').style.width = Math.min(100, elevWait / 4 * 100) + '%';
       if (elevWait >= 4) {
         elevTarget.opening = true;
-        if (Math.random() < 0.4) {
+        if (Math.random() < D().elevRisk) {
           elevBoss = makePerson({ shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
           elevBoss.root.position.set(MAP_W + 0.9, 0, elevTarget.z); elevBoss.root.rotation.y = -Math.PI / 2; scene.add(elevBoss.root);
           const fake = { name: '本部長', x: MAP_W + 0.9, z: elevTarget.z, p: elevBoss };
@@ -780,7 +799,7 @@ function caught(b, line, delay = 0) {
     $('dialog').style.display = 'none';
     const [a, bb] = pick(FAIL_TEXTS);
     overlay(`<h1 class="fail">定時退社 失敗</h1><p class="big">${a}</p><p>${bb}</p><p style="opacity:.7">現在時刻 ${fmt(gameSec + 3600)}　残業中</p>
-      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">キャラを変える</button>`);
+      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">難易度・キャラを変える</button>`);
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
   }, delay * 1000 + 5000);
 }
@@ -790,9 +809,9 @@ function escape(how, delay = 0) {
   setTimeout(() => {
     const over = gameSec / 60;
     const rank = over <= 3 ? ['S', '伝説の定時退社者'] : over <= 5 ? ['A', '華麗なる定時退社'] : over <= 8 ? ['B', 'ほぼ定時'] : ['C', '定時…とは'];
-    overlay(`<h1>定時退社 成功！</h1><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
+    overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">難易度：${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
       <p>ランク <b style="font-size:28px;color:#f2c94c">${rank[0]}</b>　${rank[1]}</p><p style="opacity:.75">今日はもう、仕事のことは考えない。</p>
-      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">キャラを変える</button>`);
+      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">難易度・キャラを変える</button>`);
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
   }, delay * 1000 + 1600);
 }
@@ -800,6 +819,7 @@ function showDialog(n, l) { $('dName').textContent = n; $('dLine').textContent =
 
 // ================== カメラ ==================
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
+let camSnap = true;
 function updateCamera(dt) {
   if (!player) { // タイトル中はオフィスをゆっくり見回す
     const t = performance.now() / 9000;
@@ -824,6 +844,7 @@ function updateCamera(dt) {
   dist = Math.max(0.6, Math.min(dist, hit - 0.25));
   const target = new THREE.Vector3(player.x - fx * dist * Math.cos(pitch), head.y + 0.35 + Math.sin(pitch) * dist, player.z - fz * dist * Math.cos(pitch));
   target.y = Math.min(target.y, CEIL - 0.15);
+  if (camSnap) { camPos.copy(target); camLook.copy(head); camSnap = false; }
   camPos.lerp(target, Math.min(1, dt * 12)); camLook.lerp(head, Math.min(1, dt * 14));
   camera.position.copy(camPos); camera.lookAt(camLook.x + fx * 0.6, camLook.y, camLook.z + fz * 0.6);
 }
@@ -844,9 +865,20 @@ function showSelect() {
     return `<div class="card" data-i="${i}">${img}<div class="nm">${c.name}</div><div class="dp">${c.dept}</div>
       <div class="st">足の速さ <b>${stars(c.stars[0])}</b><br>気配の消し方 <b>${stars(c.stars[1])}</b></div><div class="ds">${c.desc}</div></div>`;
   }).join('');
+  const diffs = Object.entries(DIFFS).map(([k, d]) => `<button class="diff${k === diffKey ? ' sel' : ''}" data-k="${k}">${d.label}</button>`).join('');
   overlay(`<h1>キャラクターを選ぶ</h1><p>今日、定時で帰るのは誰だ。</p><div class="cards">${cards}</div>
+    <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
+    <button class="btn" id="bGo">退社する</button>
     <p class="keys">PC：WASDで移動・マウスで視点・Shiftでしゃがむ・Eで調べる ／ スマホ：左で移動・右で視点・ボタンでしゃがむ</p>`, true);
-  document.querySelectorAll('.card').forEach(el => el.onclick = () => startGame(CHARACTERS[+el.dataset.i]));
+  let selChar = Math.max(0, CHARACTERS.indexOf(chara));
+  const cardsEl = document.querySelectorAll('.card');
+  const markCard = () => cardsEl.forEach(el => el.classList.toggle('sel', +el.dataset.i === selChar));
+  cardsEl.forEach(el => el.onclick = () => { selChar = +el.dataset.i; markCard(); });
+  markCard();
+  document.querySelectorAll('.diff').forEach(el => el.onclick = () => {
+    diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc;
+  });
+  $('bGo').onclick = () => startGame(CHARACTERS[selChar]);
 }
 function showTitle() {
   state = 'title';

@@ -81,13 +81,17 @@
 <div id="overlay"><div class="box" id="ovBox"></div></div>
 
 <script src="faces.js"></script>
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+<script src="model.js"></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // ================== 設定（名前やステータスはここで変える） ==================
 const PHOTOS = window.PHOTOS || {};
 const CHARACTERS = [
+  { id: 'c', name: 'Cさん', dept: '営業部', photo: 'c', glb: true, style: 'long', hair: '#3a2418', shirt: '#efe6c8', pants: '#1f2a44',
+    speed: 1.05, stealth: 1.15, desc: '等身大リアル版。腰に手を当てた余裕の構えで、堂々と定時を狙う。', stars: [3, 4] },
   { id: 'a', name: 'Aさん', dept: '営業部', photo: 'a', style: 'long', hair: '#22160f', shirt: '#ece4ee', jacket: '#26272b', pants: '#222428',
     speed: 1.0, stealth: 1.25, desc: '気配を消すのが上手い。視線に入ってもすぐには気づかれにくい。', stars: [3, 4] },
   { id: 'b', name: 'Bさん', dept: '営業部', photo: 'b', style: 'bob', hair: '#5a3a26', shirt: '#e9e2d2', jacket: '#d9cdb6', pants: '#3a3a40',
@@ -435,6 +439,7 @@ function makePerson(o) {
   return { root, body, upper, legs, arms, head, phase: Math.random() * 6, crouchT: 0 };
 }
 function animatePerson(p, dt, moveSpeed, crouch, pose) {
+  if (p.animate) return p.animate(dt, moveSpeed, crouch);
   p.crouchT += ((crouch ? 1 : 0) - p.crouchT) * Math.min(1, dt * 10);
   const c = p.crouchT;
   if (pose === 'sit') {
@@ -455,6 +460,70 @@ function labelSprite(text, color = '#ffffff', size = 0.5) {
     g.lineWidth = 12; g.strokeStyle = 'rgba(0,0,0,.75)'; g.strokeText(text, w / 2, h / 2); g.fillStyle = color; g.fillText(text, w / 2, h / 2); });
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); s.scale.set(size * 2, size, 1); s.renderOrder = 10; return s;
 }
+
+
+// ================== 等身大リアルキャラ（写真から作った3Dモデルに脚の関節を入れる） ==================
+let REAL = null;
+async function loadRealCharacter() {
+  if (!window.MODEL_GLB) return null;
+  const bin = Uint8Array.from(atob(window.MODEL_GLB), ch => ch.charCodeAt(0)).buffer;
+  const gltf = await new Promise((res, rej) => new GLTFLoader().parse(bin, '', res, rej));
+  let mesh = null; gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+  const geo = mesh.geometry.clone(); geo.applyMatrix4(mesh.matrixWorld);
+  geo.computeBoundingBox(); const bb = geo.boundingBox;
+  const S = 1.6 / (bb.max.y - bb.min.y);
+  geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2); geo.scale(S, S, S);
+  const pos = geo.attributes.position, n = pos.count;
+  const hipY = 0.47 * 1.6, kneeY = 0.27 * 1.6;
+  let sL = 0, cL = 0, sR = 0, cR = 0, zs = 0; const ax = [];
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i);
+    if (y > kneeY && y < hipY - 0.1) { ax.push(Math.abs(x)); zs += pos.getZ(i); if (x < 0) { sL += x; cL++; } else { sR += x; cR++; } }
+  }
+  ax.sort((a, b) => a - b);
+  const legMax = ax[Math.floor(ax.length * 0.97)] + 0.015, legZ = zs / ax.length;
+  const xL = sL / cL, xR = sR / cR;
+  const mk = (x, y, z, parent) => { const b = new THREE.Bone(); b.position.set(x, y, z); if (parent) parent.add(b); return b; };
+  const root = mk(0, 0, 0), hips = mk(0, hipY, legZ, root), spine = mk(0, 0, 0, hips);
+  const thighL = mk(xL, 0, 0, hips), shinL = mk(0, kneeY - hipY, 0, thighL);
+  const thighR = mk(xR, 0, 0, hips), shinR = mk(0, kneeY - hipY, 0, thighR);
+  const bones = [root, hips, spine, thighL, shinL, thighR, shinR];
+  const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+  const band = 0.07, kb = 0.05;
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i);
+    const set = (a, wa, b, wb) => { si[i * 4] = a; sw[i * 4] = wa; si[i * 4 + 1] = b; sw[i * 4 + 1] = wb; };
+    if (y >= hipY + band || (Math.abs(x) > legMax && y > kneeY)) { set(2, 1, 0, 0); continue; }
+    const [th, sh] = x < 0 ? [3, 4] : [5, 6];
+    if (y > hipY - band) { const t = (y - (hipY - band)) / (2 * band); set(2, t, th, 1 - t); continue; }
+    if (y > kneeY + kb) set(th, 1, 0, 0);
+    else if (y < kneeY - kb) set(sh, 1, 0, 0);
+    else { const w = (kneeY + kb - y) / (2 * kb); set(sh, w, th, 1 - w); }
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  const mat = mesh.material; mat.side = THREE.FrontSide;
+  const sk = new THREE.SkinnedMesh(geo, mat); sk.add(root); sk.bind(new THREE.Skeleton(bones));
+  sk.castShadow = true; sk.frustumCulled = false;
+  const group = new THREE.Group(); group.add(sk);
+  const Lt = hipY - kneeY, Ls = kneeY, A = 1.0, K = 1.7;
+  const crouchDrop = hipY - (Lt * Math.cos(A) + Ls * Math.cos(K - A));
+  const p = { root: group, phase: 0, crouchT: 0, real: true };
+  p.animate = (dt, speed, crouch) => {
+    p.crouchT += ((crouch ? 1 : 0) - p.crouchT) * Math.min(1, dt * 10);
+    const c = p.crouchT, amt = clamp(speed / 2.4, 0, 1);
+    p.phase += dt * (3 + speed * 3.0);
+    const s = Math.sin(p.phase);
+    thighL.rotation.x = -s * 0.5 * amt - c * A; thighR.rotation.x = s * 0.5 * amt - c * A;
+    shinL.rotation.x = Math.max(0, -s) * 0.75 * amt + c * K; shinR.rotation.x = Math.max(0, s) * 0.75 * amt + c * K;
+    hips.position.y = hipY + Math.abs(Math.cos(p.phase)) * 0.022 * amt - crouchDrop * c;
+    spine.rotation.x = c * 0.5 + amt * 0.05; spine.rotation.y = s * 0.07 * amt; spine.rotation.z = -s * 0.025 * amt;
+  };
+  p.animate(0, 0, false);
+  return p;
+}
+loadRealCharacter().then(r => { REAL = r; window.__real = !!r; }).catch(e => { console.error('3Dモデル読み込み失敗', e); window.__real = false; });
 
 // ================== 上司・同僚 ==================
 const BOSS_DEFS = [
@@ -547,7 +616,8 @@ const START = { x: 3.9, z: 21.5 };
 function startGame(c) {
   chara = c;
   if (pl) scene.remove(pl.root);
-  pl = makePerson({ ...c, bag: true });
+  pl = (c.glb && REAL) ? REAL : makePerson({ ...c, bag: true });
+  pl.crouchT = 0;
   scene.add(pl.root);
   player = { x: START.x, z: START.z, face: 0, r: 0.3, speed: 0 };
   yaw = Math.PI / 2; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null;

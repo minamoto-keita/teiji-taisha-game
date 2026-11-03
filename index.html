@@ -128,6 +128,37 @@
     .tbtn { width: 62px; height: 62px; }
     #tSneak { bottom: 90px; } #tDash { bottom: 160px; } #tCall { right: 90px; bottom: 125px; }
   }
+  #rotate { display: none; position: fixed; inset: 0; z-index: 100; background: #0b0d11; color: #ecebe6; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+  #rotate .ph { font-size: 64px; animation: rot 2s ease-in-out infinite; }
+  #rotate .rt { font-size: 20px; font-weight: 800; margin-top: 18px; } #rotate .rt b { color: #f2c94c; }
+  #rotate .rs { font-size: 13px; opacity: .7; margin-top: 8px; }
+  @keyframes rot { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+  @media (pointer: coarse) and (orientation: portrait) { #rotate { display: flex; } }
+  @media (max-height: 500px) {
+    #overlay { padding: 8px; }
+    .box { padding: 14px 22px; max-width: 98vw; }
+    .box h1 { font-size: 22px; }
+    .box p { font-size: 12px; margin-top: 4px; line-height: 1.55; }
+    .box .big { font-size: 15px; }
+    .btn { margin-top: 10px; padding: 8px 24px; font-size: 15px; }
+    .ctrlttl { margin-top: 10px; font-size: 12px; }
+    .ctrlgrid { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; max-width: 720px; }
+    .ctrlgrid div { padding: 6px 9px; font-size: 13px; }
+    .ctrlgrid div span { margin-top: 3px; }
+    kbd { padding: 2px 6px; font-size: 12px; }
+    .who { margin-top: 6px; } .face.sm { width: 44px; height: 44px; } .who .nm { font-size: 16px; }
+    .dlab { font-size: 11px; }
+    .scards { flex-wrap: nowrap; gap: 8px; margin-top: 4px; }
+    .scard { width: auto; flex: 1; padding: 8px 10px; }
+    .scard .snm { font-size: 15px; } .scard .sds { font-size: 11px; line-height: 1.45; margin-top: 3px; }
+    .diffs { margin-top: 8px; } .drow { margin-top: 4px; }
+    .diff { padding: 6px 16px; font-size: 13px; } .qual { padding: 4px 12px; font-size: 12px; }
+    .ddesc { margin-top: 4px; font-size: 12px; }
+    .ctrlrow { margin-top: 4px; font-size: 12px; gap: 6px 12px; }
+    .scard .sds { display: none; }
+    .diffs { display: inline-block; vertical-align: top; margin: 8px 12px 0; }
+    .ddesc { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -146,6 +177,7 @@
 <div id="items" class="hud panel" style="display:none"></div>
 <div id="toast" style="position:fixed;left:50%;top:22%;transform:translateX(-50%);font:700 18px sans-serif;color:#fff;background:rgba(20,24,30,.8);padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20"></div>
 <div id="overlay"><div class="box" id="ovBox"></div></div>
+<div id="rotate"><div class="ph">📱</div><div class="rt">スマホを<b>横向き</b>にして遊んでください</div><div class="rs">縦向きのあいだはゲームが止まります</div></div>
 
 <script src="faces.js"></script>
 <script src="model.js"></script>
@@ -1642,7 +1674,7 @@ function controlsHTML(compact) {
     ['<kbd>Q</kbd>', '電話（2回）', '上司の気を約5秒そらす', 1],
     ['<kbd>E</kbd>', '調べる', 'エレベーター等の前で'],
   ];
-  if (compact) return `<div class="ctrlttl">操作方法</div><div class="ctrlrow">${items.map(([k, n]) => `<span>${IS_TOUCH ? k.replace('</kbd>', '：' + n.replace('（2回）', '') + '</kbd>').replace(/画面の(左|右)：/, '$1で') : k + ' ' + n.replace('（2回）', '')}</span>`).join('')}</div>`;
+  if (compact) return `<div class="ctrlttl">操作方法</div><div class="ctrlrow">${items.map(([k, n]) => `<span>${IS_TOUCH ? (k.includes('画面の') ? k.replace('画面の', '') + ' ' + n : k) : k + ' ' + n.replace('（2回）', '')}</span>`).join('')}</div>`;
   return `<div class="ctrlttl">操作方法</div><div class="ctrlgrid">${items.map(([k, n, d, hl]) => `<div${hl ? ' class="hl"' : ''}>${k}${IS_TOUCH ? '' : '　' + n}<span>${d}</span></div>`).join('')}</div>`;
 }
 let selStage = 0;
@@ -1663,7 +1695,7 @@ function showSelect() {
   document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
   document.querySelectorAll('.diff').forEach(el => el.onclick = () => { diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc; });
   document.querySelectorAll('.qual').forEach(el => el.onclick = () => { quality = el.dataset.q; localStorage.setItem('teiji-quality', quality); document.querySelectorAll('.qual').forEach(x => x.classList.toggle('sel', x === el)); onResize(); });
-  $('bGo').onclick = () => { $('bGo').textContent = '読み込み中…'; setTimeout(() => startGame(CHARACTERS[0], selStage), 30); };
+  $('bGo').onclick = () => { if (IS_TOUCH) { try { const r = document.documentElement.requestFullscreen?.(); r && r.then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); } catch (e) {} } $('bGo').textContent = '読み込み中…'; setTimeout(() => startGame(CHARACTERS[0], selStage), 30); };
 }
 function showTitle() {
   state = 'title';
@@ -1681,7 +1713,7 @@ function modelsLoaded() { if (window.__npc !== undefined && window.__real !== un
 let last = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (state === 'play') update(dt);
+  if (state === 'play' && !(IS_TOUCH && innerHeight > innerWidth)) update(dt);
   else if (state === 'caught' || state === 'escape') {
     if (pl && (state === 'caught' || !exitTarget)) animatePerson(pl, dt, 0, false);
     for (const b of bosses) placeBoss(b, dt, 0);

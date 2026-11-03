@@ -251,17 +251,30 @@ function setupComposer() {
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.5, 0.9));
   composer.addPass(new OutputPass());
 }
+const TOUCH_DEV = matchMedia('(pointer: coarse)').matches;
+let prCap = 1, dynPR = null;
 function onResize() {
-  const touch = matchMedia('(pointer: coarse)').matches;
-  const pr = quality === 'high' ? Math.min(devicePixelRatio, touch ? 2.25 : 1.5) : Math.min(devicePixelRatio, touch ? 1.5 : 1);
+  prCap = quality === 'high' ? Math.min(devicePixelRatio, TOUCH_DEV ? 2 : 1.5) : Math.min(devicePixelRatio, TOUCH_DEV ? 1.5 : 1);
+  dynPR = TOUCH_DEV ? Math.min(dynPR ?? prCap, prCap) : prCap;
+  const pr = dynPR;
   renderer.setPixelRatio(pr);
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (composer) { composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
 }
-setupComposer();
+if (!TOUCH_DEV) setupComposer();
 addEventListener('resize', onResize); onResize();
-function renderFrame() { if (quality === 'high' && composer) composer.render(); else renderer.render(scene, camera); }
+function renderFrame() { if (quality === 'high' && composer && !TOUCH_DEV) composer.render(); else renderer.render(scene, camera); }
+// スマホ：fpsを見て解像度を自動で上下
+let fpsN = 0, fpsT = 0, fpsGood = 0;
+function adaptRes(dt) {
+  if (!TOUCH_DEV) return;
+  fpsN++; fpsT += dt; if (fpsT < 2) return;
+  const fps = fpsN / fpsT; fpsN = 0; fpsT = 0;
+  if (fps < 42 && dynPR > 1) { dynPR = Math.max(1, dynPR - 0.25); fpsGood = 0; onResize(); }
+  else if (fps > 56 && dynPR < prCap) { if (++fpsGood >= 3) { dynPR = Math.min(prCap, dynPR + 0.25); fpsGood = 0; onResize(); } }
+  else fpsGood = 0;
+}
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -1260,7 +1273,7 @@ function buildStage(idx) {
   const hemi = new THREE.HemisphereLight('#fff8ee', '#4b4743', info.hemi); G.add(hemi);
   const sun = new THREE.DirectionalLight(info.sun.color, info.sun.intensity);
   sun.position.set(...info.sun.pos); sun.target.position.set(...info.sun.target);
-  sun.castShadow = true; sun.shadow.mapSize.set(quality === 'high' ? 2048 : 1024, quality === 'high' ? 2048 : 1024);
+  sun.castShadow = true; { const sm = TOUCH_DEV ? (quality === 'high' ? 1024 : 512) : (quality === 'high' ? 2048 : 1024); sun.shadow.mapSize.set(sm, sm); }
   const r = Math.max(S.W, S.D) * 0.85;
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 90 });
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; G.add(sun, sun.target);
@@ -1719,7 +1732,9 @@ function modelsLoaded() { if (window.__npc !== undefined && window.__real !== un
 // ================== ループ ==================
 let last = performance.now();
 function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const rawDt = (now - last) / 1000;
+  const dt = Math.min(0.05, rawDt); last = now;
+  if (state === 'play' && rawDt < 0.5) adaptRes(rawDt);
   if (state === 'play' && !(IS_TOUCH && innerHeight > innerWidth)) update(dt);
   else if (state === 'caught' || state === 'escape') {
     if (pl && (state === 'caught' || !exitTarget)) animatePerson(pl, dt, 0, false);

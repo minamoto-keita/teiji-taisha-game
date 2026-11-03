@@ -239,7 +239,8 @@ scene.environmentIntensity = 0.45;
 let quality = localStorage.getItem('teiji-quality') || 'high';
 let composer = null, gtao = null;
 function setupComposer() {
-  composer = new EffectComposer(renderer);
+  const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+  composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   try {
     gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
@@ -251,7 +252,8 @@ function setupComposer() {
   composer.addPass(new OutputPass());
 }
 function onResize() {
-  const pr = quality === 'high' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 1);
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const pr = quality === 'high' ? Math.min(devicePixelRatio, touch ? 2.25 : 1.5) : Math.min(devicePixelRatio, touch ? 1.5 : 1);
   renderer.setPixelRatio(pr);
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();

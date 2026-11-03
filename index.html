@@ -900,12 +900,12 @@ function attachPhoneProp(model) {
   return ph;
 }
 // Mixamoの動き（上司用の共通クリップ）を別のMixamoキャラに付け替える
-function retargetClip(clipJson, hips) {
+function retargetClip(clipJson, hips, keepZ = false) {
   const c = THREE.AnimationClip.parse(clipJson);
   const pre = hips.name.replace(/Hips$/, ''), ratio = hips.position.y / window.NPC_CLIPS.hipsY;
   for (const t of c.tracks) {
     t.name = t.name.replace(/^mixamorig/, pre);
-    if (t.name === hips.name + '.position') { const v = t.values = t.values.slice(); for (let i = 0; i < v.length; i += 3) { v[i] = hips.position.x; v[i + 1] *= ratio; v[i + 2] = hips.position.z; } }
+    if (t.name === hips.name + '.position') { const v = t.values = t.values.slice(); for (let i = 0; i < v.length; i += 3) { v[i] = hips.position.x; v[i + 1] *= ratio; v[i + 2] = keepZ ? v[i + 2] * ratio : hips.position.z; } }
   }
   return c;
 }
@@ -1057,6 +1057,8 @@ async function loadRiggedCharacter() {
   let hipsBone = null; model.traverse(o => { if (o.isBone && /Hips$/.test(o.name) && !hipsBone) hipsBone = o; });
   const phj = window.NPC_CLIPS && window.NPC_CLIPS.clips.find(c => c.name === 'phone');
   if (hipsBone && phj) { const a = mixer.clipAction(retargetClip(phj, hipsBone)); a.play(); a.setEffectiveWeight(0); a.time = 1.2; A.phone = a; }
+  const sij = window.NPC_CLIPS && window.NPC_CLIPS.clips.find(c => c.name === 'sit');
+  if (hipsBone && sij) { const a = mixer.clipAction(retargetClip(sij, hipsBone, true)); a.play(); a.setEffectiveWeight(0); A.sit = a; }
   const phoneProp = attachPhoneProp(model);
   const p = { root: group, phase: 0, crouchT: 0, real: true, rigged: true, moveT: 0, defT: 0, defeated: false };
   p.A = A; p.model = model;
@@ -1069,9 +1071,11 @@ async function loadRiggedCharacter() {
     p.defT += ((p.defeated ? 1 : 0) - p.defT) * Math.min(1, dt * 5);
     p.phT = (p.phT || 0) + (((p.phoneT || 0) > 0 && A.phone ? 1 : 0) - (p.phT || 0)) * Math.min(1, dt * 7);
     if (p.phoneT > 0) p.phoneT -= dt;
-    if (A.phone) A.phone.setEffectiveWeight(p.phT * (1 - p.defT));
+    p.siT = (p.siT || 0) + ((p.sitting && A.sit ? 1 : 0) - (p.siT || 0)) * Math.min(1, dt * 8);
+    if (A.sit) A.sit.setEffectiveWeight(p.siT * (1 - p.defT));
+    if (A.phone) A.phone.setEffectiveWeight(p.phT * (1 - p.defT) * (1 - p.siT));
     if (phoneProp) phoneProp.visible = p.phT > 0.5;
-    const c = p.crouchT, m = p.moveT, k = (1 - p.defT) * (1 - p.phT);
+    const c = p.crouchT, m = p.moveT, k = (1 - p.defT) * (1 - p.phT) * (1 - p.siT);
     p.runT = (p.runT || 0) + ((speed > 3.2 ? 1 : 0) - (p.runT || 0)) * Math.min(1, dt * 8);
     const rn = A.run ? p.runT : 0;
     A.idle.setEffectiveWeight((1 - c) * (1 - m) * k);
@@ -1465,7 +1469,7 @@ function startGame(c, sIdx = stageIdx) {
   player = { x: st.x, z: st.z, face: st.yaw === 0 ? Math.PI / 2 : st.yaw === Math.PI / 2 ? 0 : 0, r: 0.3, speed: 0 };
   player.face = Math.atan2(Math.cos(st.yaw), Math.sin(st.yaw));
   yaw = st.yaw; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null; exitTarget = null;
-  spawnBosses(); spawnCardboards(); player.inBox = null; player.callT = 0; pl.root.visible = true; pl.phoneT = 0;
+  spawnBosses(); spawnCardboards(); spawnDesks(); player.inBox = null; player.atDesk = null; if (pl) pl.sitting = false; player.callT = 0; pl.root.visible = true; pl.phoneT = 0;
   phones = 2; graceT = 4; noiseRings.forEach(r => scene.remove(r.m)); noiseRings = []; noiseT = 0;
   (STAGE.coworkers || []).forEach(c => { c.cool = Math.hypot(c.x - player.x, c.z - player.z) < 2.5 ? 25 : 0; c.say.visible = false; c.sayT = 0; });
   $('items').style.display = 'block'; updateItems();
@@ -1486,9 +1490,10 @@ function drawFaceCanvas(g, s, c) { const t = drawnFaceTexture(c); g.drawImage(t.
 const inZone = (z, x, y) => x > z[0] && x < z[2] && y > z[1] && y < z[3];
 function exitAt(x, z) { return STAGE.exits.find(e => inZone(e.zone, x, z)) || null; }
 function doAction() {
+  if (player.atDesk) return leaveDesk();
   if (player.inBox) return leaveBox();
   const ex = exitAt(player.x, player.z);
-  if (!ex) { const c = nearCardboard(); if (c) enterBox(c); return; }
+  if (!ex) { const n = nearSpot(); if (n && n.box) enterBox(n.box); else if (n && n.desk) enterDesk(n.desk); return; }
   if (ex.type === 'stairs') { exitTarget = ex.target; return escape('非常階段で脱出'); }
   if (ex.type === 'elev' && elevWait < 0) { elevWait = 0; elevTarget = STAGE.elevs.reduce((a, e) => Math.hypot(e.x - player.x, e.z - player.z) < Math.hypot(a.x - player.x, a.z - player.z) ? e : a); }
 }
@@ -1496,7 +1501,8 @@ function doAction() {
 function update(dt) {
   gameSec += dt * 6;
   const inBox = !!player.inBox;
-  const crouch = inBox || keys['shift'] || keys['c'] || sneakToggle;
+  const atDesk = !!player.atDesk;
+  const crouch = !atDesk && (inBox || keys['shift'] || keys['c'] || sneakToggle);
   if (player.callT > 0) player.callT -= dt;
   let f = 0, r = 0;
   if (keys['w'] || keys['arrowup']) f += 1; if (keys['s'] || keys['arrowdown']) f -= 1;
@@ -1507,12 +1513,13 @@ function update(dt) {
   if (ml > 1) { mx /= ml; mz /= ml; }
   const dash = !crouch && (keys[' '] || dashTouch);
   const sp = (inBox ? 0.95 : crouch ? 1.25 : dash ? 4.3 : 2.5) * chara.speed;
-  if (elevWait >= 0 || player.callT > 0) { mx = mz = 0; }
-  if (ml > 0.05 && elevWait < 0 && !(player.callT > 0)) {
+  const frozen = elevWait >= 0 || player.callT > 0 || atDesk;
+  if (frozen) { mx = mz = 0; }
+  if (ml > 0.05 && !frozen) {
     player.x += mx * sp * dt; player.z += mz * sp * dt; resolveCollision(player, player.r);
     const want = Math.atan2(mz, mx); player.face += angDiff(want, player.face) * Math.min(1, dt * 12);
   }
-  player.speed = ml > 0.05 && elevWait < 0 && !(player.callT > 0) ? sp * Math.min(1, ml) : 0;
+  player.speed = ml > 0.05 && !frozen ? sp * Math.min(1, ml) : 0;
   pl.root.position.set(player.x, 0, player.z); pl.root.rotation.y = Math.PI / 2 - player.face;
   animatePerson(pl, dt, player.speed, crouch && !inBox);
   if (inBox) {
@@ -1527,7 +1534,7 @@ function update(dt) {
   }
   if (crouch !== prevCrouch && !inBox) SND.rustle(); prevCrouch = crouch;
   updateNoise(dt);
-  updateCoworkers(dt, crouch);
+  updateCoworkers(dt, crouch || atDesk);
 
   let maxSus = 0, seer = null;
   for (const b of bosses) {
@@ -1539,8 +1546,10 @@ function update(dt) {
     if (player.dashing && d < NOISE_R && !onPhone) b.sus = Math.min(0.95, b.sus + 1.5 * D().gain * dt);
     const boxStill = inBox && player.speed < 0.1;
     const bump = (inBox ? !boxStill && d < 0.7 : d < 1.0) && lineOfSight(b.x, b.z, player.x, player.z, false);
-    const boxSeen = inCone && (!inBox || (!boxStill && d < range * 0.6));
-    if (bump || boxSeen) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (inBox ? 0.25 : crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
+    const boxSeen = !atDesk && inCone && (!inBox || (!boxStill && d < range * 0.6));
+    const deskWatch = atDesk && !onPhone && d < DESK_R && lineOfSight(b.x, b.z, player.x, player.z, false);
+    if (deskWatch) b.sus = Math.min(1, b.sus + dt / DESK_T * Math.sqrt(D().gain) * (1.4 - d / DESK_R * 0.6));
+    else if (!atDesk && (bump || boxSeen)) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (inBox ? 0.25 : crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
     else b.sus = Math.max(0, b.sus - D().decay * dt);
     if (b.sus > maxSus) { maxSus = b.sus; seer = b; }
     let moving = 0;
@@ -1568,7 +1577,7 @@ function update(dt) {
   if (meter > 0.05 && prevMeter <= 0.05) SND.notice();
   prevMeter = meter;
   if (meter > 0.3) { heartT -= dt; if (heartT <= 0) { heartT = 1.0 - meter * 0.55; SND.heart(Math.min(1, meter)); } } else heartT = 0;
-  if (meter >= 1) return caught(seer, pick(BOSS_LINES[seer.name] || BOSS_LINES['課長']));
+  if (meter >= 1) return caught(seer, atDesk ? pick(DESK_LINES) : pick(BOSS_LINES[seer.name] || BOSS_LINES['課長']));
 
   const ex = exitAt(player.x, player.z);
   if (ex && ex.type === 'door') { exitTarget = ex.target; return escape('正面玄関から脱出'); }
@@ -1641,6 +1650,54 @@ function leaveBox() {
   c.g.position.set(c.x, 0, c.z);
 }
 
+// ================== 空いている席で作業しているふり ==================
+// 座っている間は遠くの上司には怪しまれない。近く（DESK_R以内）で見られ続けると仕事を振られる
+const DESK_R = 2.6, DESK_T = 2.5;
+const DESK_LINES = ['お、まだいたのか。ちょうどよかった、これも今日中にお願いできる？', '残業おつかれ！ついでにこの資料もまとめといてくれる？', '頑張ってるね〜。じゃあこれも頼んじゃおうかな。'];
+let desks = [], deskLayer = new THREE.Group(); scene.add(deskLayer);
+function spawnDesks() {
+  deskLayer.clear(); desks = [];
+  const used = new Set(STAGE.sitters), st = STAGE.start, cand = [];
+  STAGE.seats.forEach((s, i) => {
+    if (used.has(i)) return;
+    const ox = s.x - Math.cos(s.face) * 0.8, oz = s.z - Math.sin(s.face) * 0.8;
+    if (hitsAny(ox, oz, 0.3) || Math.hypot(ox - st.x, oz - st.z) < 3 || exitAt(ox, oz)) return;
+    cand.push({ x: s.x, z: s.z, face: s.face, ox, oz });
+  });
+  const n = Math.min(STAGE.deskN || 4, cand.length);
+  while (desks.length < n) {
+    let best = null, bd = -Infinity;
+    for (const c of cand) {
+      if (desks.includes(c)) continue;
+      const dmin = desks.length ? Math.min(...desks.map(d => Math.hypot(d.x - c.x, d.z - c.z))) : Math.hypot(c.x - STAGE.W / 2, c.z - STAGE.D / 2) * -1;
+      if (dmin > bd) { bd = dmin; best = c; }
+    }
+    if (!best) break; desks.push(best);
+  }
+  for (const d of desks) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 28), new THREE.MeshBasicMaterial({ color: '#4fc3f7', transparent: true, opacity: 0.55, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(d.x, 0.02, d.z); deskLayer.add(ring); d.ring = ring;
+  }
+}
+function nearSpot() {
+  let best = null, bd = 1.6;
+  for (const c of cardboards) { const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = { box: c }; } }
+  for (const k of desks) { const d = Math.min(Math.hypot(k.ox - player.x, k.oz - player.z), Math.hypot(k.x - player.x, k.z - player.z)); if (d < Math.min(bd, 1.3)) { bd = d; best = { desk: k }; } }
+  return best;
+}
+function enterDesk(d) {
+  player.atDesk = d; player.x = d.x; player.z = d.z; player.face = d.face; d.ring.visible = false;
+  sneakToggle = false; $('tSneak').classList.remove('on');
+  if (pl) pl.sitting = true; SND.rustle();
+  showToast('作業しているふり（上司に近くで見られ続けると仕事を振られる）');
+}
+function leaveDesk(keepPos) {
+  const d = player.atDesk; if (!d) return;
+  player.atDesk = null; d.ring.visible = true; if (pl) pl.sitting = false;
+  if (!keepPos) { player.x = d.ox; player.z = d.oz; resolveCollision(player, player.r); }
+  SND.rustle();
+}
+
 // ================== ダッシュの足音・電話・同僚の声かけ ==================
 const NOISE_R = 7;
 let phones = 2, noiseRings = [], noiseT = 0, graceT = 0;
@@ -1655,7 +1712,7 @@ function updateNoise(dt) {
   noiseRings = noiseRings.filter(r => { if (r.t >= 0.7) { scene.remove(r.m); r.m.geometry.dispose(); return false; } return true; });
 }
 function usePhone() {
-  if (state !== 'play' || phones <= 0) return;
+  if (state !== 'play' || phones <= 0 || (player && player.atDesk)) return;
   // 一番こちらを気にしている上司、いなければ一番近い上司の電話を鳴らす
   let t = null, best = -1;
   for (const b of bosses) { if (b.phone > 0) continue; const d = Math.hypot(player.x - b.x, player.z - b.z); const score = b.sus * 100 + Math.max(0, 30 - d); if (d < 25 && score > best) { best = score; t = b; } }
@@ -1706,8 +1763,10 @@ function updateHud(crouch, ex) {
   $('mission').classList.toggle('alert', meter > 0.6);
   $('mSub').textContent = meter > 0.6 ? '上司に気づかれかけている！' : '上司に見つからずに会社を出る';
   let h = STAGE.goal.replace('目標：', '');
-  const nb = !player.inBox && !ex && nearCardboard();
-  if (player.inBox) h = player.speed > 0.1 ? '段ボールで移動中：視界に入ると怪しまれる' : (IS_TOUCH ? '段ボールの中：止まっていれば見つからない（「出る」で出る）' : '段ボールの中：止まっていれば見つからない（E：出る）');
+  const ns = !player.inBox && !player.atDesk && !ex ? nearSpot() : null, nb = ns && ns.box, nd = ns && ns.desk;
+  if (player.atDesk) h = meter > 0.05 ? '上司が見ている！近くで見られ続けると仕事を振られる' : (IS_TOUCH ? '作業中のふり：遠くからは怪しまれない（「立つ」で席を立つ）' : '作業中のふり：遠くからは怪しまれない（E：席を立つ）');
+  else if (nd) h = IS_TOUCH ? '「座る」ボタンで作業しているふりをする' : 'E：空いている席で作業しているふり';
+  else if (player.inBox) h = player.speed > 0.1 ? '段ボールで移動中：視界に入ると怪しまれる' : (IS_TOUCH ? '段ボールの中：止まっていれば見つからない（「出る」で出る）' : '段ボールの中：止まっていれば見つからない（E：出る）');
   else if (nb) h = IS_TOUCH ? '「隠れる」ボタンで段ボールに入る' : 'E：段ボールに隠れる';
   else if (ex) h = ex.type === 'elev' && elevWait >= 0 ? 'エレベーターを待っている…' : ex.label;
   else if (meter > 0.05) h = '視線が外れるのを待つ／しゃがんで机に隠れる';
@@ -1715,12 +1774,12 @@ function updateHud(crouch, ex) {
   else if (player.dashing) h = 'ダッシュ中：足音で近くの上司に気づかれる！';
   else if (!IS_TOUCH && !document.pointerLockElement) h = '画面をクリックするとマウスで見回せる';
   $('hintText').textContent = h;
-  const actOn = (ex && ex.type !== 'door') || player.inBox || nb;
+  const actOn = (ex && ex.type !== 'door') || player.inBox || player.atDesk || nb || nd;
   $('tAct').style.display = actOn ? 'block' : 'none';
-  $('tAct').textContent = player.inBox ? '出る' : nb ? '隠れる' : '調べる';
+  $('tAct').textContent = player.atDesk ? '立つ' : player.inBox ? '出る' : nb ? '隠れる' : nd ? '座る' : '調べる';
   const tg = (id, on, cls = 'on') => { const el = $(id); if (el) el.classList.toggle(cls, on); };
   tg('rCrouch', !!crouch && !player.inBox); tg('rDash', !!player.dashing);
-  if ($('rAct')) { $('rAct').style.display = actOn ? 'flex' : 'none'; $('rActL').textContent = player.inBox ? '段ボールから出る' : nb ? '段ボールに隠れる' : '調べる'; }
+  if ($('rAct')) { $('rAct').style.display = actOn ? 'flex' : 'none'; $('rActL').textContent = player.atDesk ? '席を立つ' : player.inBox ? '段ボールから出る' : nb ? '段ボールに隠れる' : nd ? '作業しているふり' : '調べる'; }
   if ($('rLock')) $('rLock').style.display = document.pointerLockElement ? 'none' : 'block';
   drawMinimap();
 }
@@ -1734,6 +1793,7 @@ function drawMinimap() {
   mm.translate(S / 2, S / 2); mm.rotate(yaw - Math.PI); mm.translate(-player.x * sc, -player.z * sc);
   mm.fillStyle = 'rgba(70,76,86,1)'; mm.fillRect(0, 0, STAGE.W * sc, STAGE.D * sc);
   for (const b of OBST) { if (b.kind === 'chair') continue; mm.fillStyle = b.kind === 'desk' ? '#8a6a4c' : b.kind === 'glass' ? '#7fb8d6' : '#c9c6bf'; mm.fillRect(b.x0 * sc, b.z0 * sc, Math.max(1.5, (b.x1 - b.x0) * sc), Math.max(1.5, (b.z1 - b.z0) * sc)); }
+  mm.fillStyle = '#4fc3f7'; for (const d of desks) if (d !== player.atDesk) { mm.beginPath(); mm.arc(d.x * sc, d.z * sc, 4.5, 0, 7); mm.fill(); }
   mm.fillStyle = '#c08a4a'; for (const c of cardboards) if (c !== player.inBox) mm.fillRect(c.x * sc - 4, c.z * sc - 4, 8, 8);
   mm.fillStyle = '#3ad17a'; for (const e of STAGE.exits) mm.fillRect(e.zone[0] * sc, e.zone[1] * sc, (e.zone[2] - e.zone[0]) * sc, (e.zone[3] - e.zone[1]) * sc);
   for (const b of bosses) {
@@ -1748,6 +1808,7 @@ function drawMinimap() {
 
 function caught(b, line, delay = 0) {
   if (player && player.inBox) leaveBox();
+  if (player && player.atDesk) leaveDesk(true);
   $('items').style.display = 'none';
   state = 'caught'; caughtBy = b; cutT = 0; document.exitPointerLock?.();
   SND.stopBgm(); SND.caught(); setTimeout(() => SND.fail(), delay * 1000 + 5000);
@@ -1830,14 +1891,14 @@ function controlsHTML(compact) {
     ['<kbd class="w">しゃがむ</kbd>', 'しゃがむ', '机の陰に隠れられる', 1],
     ['<kbd class="w">ダッシュ</kbd>', 'ダッシュ', '速いが足音で気づかれる'],
     ['<kbd class="w">電話</kbd>', '電話（2回）', '上司の気を約5秒そらす', 1],
-    ['<kbd class="w">調べる</kbd>', '調べる・隠れる', 'エレベーター前で使う／段ボールに入る'],
+    ['<kbd class="w">調べる</kbd>', '調べる・隠れる', 'エレベーター／段ボール／空き席で作業のふり'],
   ] : [
     ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', '移動', '矢印キーでもOK'],
     ['<kbd class="w">マウス</kbd>', '視点', '画面をクリックすると操作できる'],
     ['<kbd class="w">Shift</kbd>', 'しゃがむ', '机の陰に隠れられる', 1],
     ['<kbd class="w">Space</kbd>', 'ダッシュ', '速いが足音で気づかれる'],
     ['<kbd>Q</kbd>', '電話（2回）', '上司の気を約5秒そらす', 1],
-    ['<kbd>E</kbd>', '調べる・隠れる', 'エレベーター前で使う／段ボールに入る'],
+    ['<kbd>E</kbd>', '調べる・隠れる', 'エレベーター／段ボール／空き席で作業のふり'],
   ];
   if (compact) return `<div class="ctrlttl">操作方法</div><div class="ctrlrow">${items.map(([k, n]) => `<span>${IS_TOUCH ? (k.includes('画面の') ? k.replace('画面の', '') + ' ' + n : k) : k + ' ' + n.replace('（2回）', '')}</span>`).join('')}</div>`;
   return `<div class="ctrlttl">操作方法</div><div class="ctrlgrid">${items.map(([k, n, d, hl]) => `<div${hl ? ' class="hl"' : ''}>${k}${IS_TOUCH ? '' : '　' + n}<span>${d}</span></div>`).join('')}</div>`;
@@ -2012,7 +2073,7 @@ function resumeGame() {
 function leaveGame() {
   $('items').style.display = 'none'; $('dialog').style.display = 'none'; $('progress').style.display = 'none';
   if (pl) scene.remove(pl.root);
-  bossLayer.clear(); bosses = []; cbLayer.clear(); cardboards = []; player = null;
+  bossLayer.clear(); bosses = []; cbLayer.clear(); cardboards = []; deskLayer.clear(); desks = []; player = null;
   noiseRings.forEach(r => scene.remove(r.m)); noiseRings = [];
 }
 $('bPause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
@@ -2087,7 +2148,7 @@ window.__validate = () => {
   return out;
 };
 window.__setYaw = v => { yaw = v; camSnap = true; };
-window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get pl() { return pl; }, SND };
+window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
 
 buildStage(0);
 showTitle();

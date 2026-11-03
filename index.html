@@ -168,6 +168,10 @@
   .pmenu { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 16px; }
   .pmenu .btn { margin: 0; width: 280px; } .pmenu .btn.sub { margin: 0; }
   @media (max-height: 500px) { #bPause { top: 8px; padding: 6px 12px; font-size: 13px; } .pmenu { gap: 6px; margin-top: 8px; } .pmenu .btn { padding: 7px 20px; } }
+  #bMute { position: fixed; z-index: 30; top: 14px; right: 14px; font: inherit; font-size: 16px; font-weight: 800; padding: 6px 12px;
+    border-radius: 6px; background: rgba(14,17,22,.82); color: #ecebe6; border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
+  body.playing #bMute { top: 14px; right: auto; left: calc(50% + 86px); }
+  @media (max-height: 500px) { body.playing #bMute { top: 8px; left: calc(50% + 74px); padding: 5px 10px; } }
 </style>
 </head>
 <body>
@@ -185,6 +189,7 @@
 <div id="touch"><button class="tbtn" id="tSneak">しゃがむ</button><button class="tbtn" id="tAct">調べる</button><button class="tbtn" id="tDash">ダッシュ</button><button class="tbtn" id="tCall">電話</button></div>
 <div id="items" class="hud panel" style="display:none"></div>
 <button id="bPause" style="display:none" aria-label="一時停止">⏸ 一時停止</button>
+<button id="bMute" aria-label="音のオンオフ">🔊</button>
 <div id="toast" style="position:fixed;left:50%;top:22%;transform:translateX(-50%);font:700 18px sans-serif;color:#fff;background:rgba(20,24,30,.8);padding:8px 16px;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20"></div>
 <div id="overlay"><div class="box" id="ovBox"></div></div>
 <div id="rotate"><div class="ph">📱</div><div class="rt">スマホを<b>横向き</b>にして遊んでください</div><div class="rs">縦向きのあいだはゲームが止まります</div></div>
@@ -1410,6 +1415,7 @@ addEventListener('keydown', e => {
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
   if ((k === 'escape' || k === 'p') && state === 'play') { pauseGame(); return; }
   if ((k === 'escape' || k === 'p') && state === 'pause' && performance.now() - pausedAt > 400) { resumeGame(); return; }
+  if (k === 'm') { SND.init(); SND.toggleMute(); muteLabel(); }
   if (k === 'e' && state === 'play') doAction();
   if (k === 'q' && state === 'play') usePhone();
   if (k === 'enter' && state !== 'play') { const b = document.querySelector('#overlay .btn'); b && b.click(); }
@@ -1466,9 +1472,11 @@ function startGame(c, sIdx = stageIdx) {
   $('mWho').textContent = `${c.name} ｜ ${c.dept}`;
   $('goal').textContent = STAGE.goal;
   $('dialog').style.display = 'none'; $('progress').style.display = 'none';
-  hideOverlay(); state = 'play';
+  hideOverlay(); state = 'play'; SND.bgm('stealth'); SND.setDuck(1); SND.setTension(0);
+  stepDist = 0; heartT = 0; prevMeter = 0; prevCrouch = false;
   if (matchMedia('(pointer: fine)').matches) lockPointer();
 }
+let stepDist = 0, heartT = 0, prevMeter = 0, prevCrouch = false;
 function drawFaceCanvas(g, s, c) { const t = drawnFaceTexture(c); g.drawImage(t.image, 0, 0, s, s); }
 const inZone = (z, x, y) => x > z[0] && x < z[2] && y > z[1] && y < z[3];
 function exitAt(x, z) { return STAGE.exits.find(e => inZone(e.zone, x, z)) || null; }
@@ -1507,6 +1515,12 @@ function update(dt) {
     c.g.rotation.y = Math.PI / 2 - player.face; c.g.children[0].position.y = 0.39 + (player.speed > 0 ? Math.abs(Math.sin(performance.now() / 110)) * 0.03 : 0);
   }
   player.dashing = dash && player.speed > 0.5;
+  if (player.speed > 0.1) {
+    stepDist += player.speed * dt;
+    const stride = inBox ? 0.45 : player.dashing ? 0.85 : crouch ? 0.5 : 0.62;
+    if (stepDist > stride) { stepDist = 0; SND.step(inBox ? 'box' : player.dashing ? 'dash' : crouch ? 'crouch' : 'walk'); }
+  }
+  if (crouch !== prevCrouch && !inBox) SND.rustle(); prevCrouch = crouch;
   updateNoise(dt);
   updateCoworkers(dt, crouch);
 
@@ -1544,6 +1558,10 @@ function update(dt) {
     updateCone(b, crouch);
   }
   meter = maxSus;
+  SND.setTension(meter);
+  if (meter > 0.05 && prevMeter <= 0.05) SND.notice();
+  prevMeter = meter;
+  if (meter > 0.3) { heartT -= dt; if (heartT <= 0) { heartT = 1.0 - meter * 0.55; SND.heart(Math.min(1, meter)); } } else heartT = 0;
   if (meter >= 1) return caught(seer, pick(BOSS_LINES[seer.name] || BOSS_LINES['課長']));
 
   const ex = exitAt(player.x, player.z);
@@ -1551,11 +1569,12 @@ function update(dt) {
   if (elevWait >= 0) {
     if (!ex || ex.type !== 'elev') { elevWait = -1; }
     else {
+      if (Math.floor((elevWait + dt) * 2) > Math.floor(elevWait * 2)) SND.tick();
       elevWait += dt;
       $('progress').style.display = 'block'; $('pText').textContent = 'エレベーター待ち…（中に上司がいるかも）';
       $('pFill').style.width = Math.min(100, elevWait / 4 * 100) + '%';
       if (elevWait >= 4) {
-        elevTarget.opening = true;
+        elevTarget.opening = true; SND.ding();
         const ix = elevTarget.x - Math.sin(elevTarget.ry) * 0.9, iz = elevTarget.z - Math.cos(elevTarget.ry) * 0.9;
         if (Math.random() < D().elevRisk) {
           elevBoss = makeStaff('honbu', { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
@@ -1606,12 +1625,12 @@ function nearCardboard() {
 }
 function enterBox(c) {
   player.inBox = c; player.x = c.x; player.z = c.z; resolveCollision(player, player.r);
-  pl.root.visible = false; sneakToggle = false; $('tSneak').classList.remove('on');
+  pl.root.visible = false; sneakToggle = false; $('tSneak').classList.remove('on'); SND.boxIn();
   showToast('段ボールに隠れた（止まっていれば見つからない）');
 }
 function leaveBox() {
   const c = player.inBox; if (!c) return;
-  player.inBox = null; pl.root.visible = true;
+  player.inBox = null; pl.root.visible = true; SND.boxOut();
   c.x = player.x + Math.cos(player.face) * 0.05; c.z = player.z + Math.sin(player.face) * 0.05;
   c.g.position.set(c.x, 0, c.z);
 }
@@ -1637,6 +1656,7 @@ function usePhone() {
   if (!t) return;
   phones--; t.phone = 6.2; t.ring = 0.8; t.phoneAng = Math.atan2(t.z - player.z, t.x - player.x);
   if (pl) pl.phoneT = 1.6; player.callT = 1.6;
+  SND.dial(); SND.ring(Math.hypot(t.x - player.x, t.z - player.z));
   showToast(`${t.name}の電話を鳴らした！（残り${phones}回）`); updateItems();
 }
 function updateCoworkers(dt, crouch) {
@@ -1645,7 +1665,7 @@ function updateCoworkers(dt, crouch) {
     c.cool -= dt;
     if (c.sayT > 0) { c.sayT -= dt; if (c.sayT <= 0) c.say.visible = false; }
     if (!crouch && c.cool <= 0 && graceT <= 0 && Math.hypot(player.x - c.x, player.z - c.z) < 1.8) {
-      c.cool = 14; c.sayT = 2.2; c.say.visible = true;
+      c.cool = 14; c.sayT = 2.2; c.say.visible = true; SND.greet();
       for (const b of bosses) {
         if (b.phone > 0) continue;
         const d = Math.hypot(b.x - c.x, b.z - c.z);
@@ -1724,6 +1744,7 @@ function caught(b, line, delay = 0) {
   if (player && player.inBox) leaveBox();
   $('items').style.display = 'none';
   state = 'caught'; caughtBy = b; cutT = 0; document.exitPointerLock?.();
+  SND.stopBgm(); SND.caught(); setTimeout(() => SND.fail(), delay * 1000 + 5000);
   $('mission').classList.add('alert'); $('mSub').textContent = '上司に見つかった！';
   $('stLabel').textContent = '見つかった'; $('stLabel').className = 'bad'; $('meterFill').style.width = '100%';
   if (b.mark) { b.mark.material.map = labelSprite('！', '#ff5a5f').material.map; b.mark.visible = true; }
@@ -1743,6 +1764,7 @@ function caught(b, line, delay = 0) {
 function escape(how, delay = 0) {
   $('items').style.display = 'none';
   state = 'escape'; cutT = 0; document.exitPointerLock?.();
+  SND.stopBgm(); SND.success();
   setTimeout(() => {
     const over = gameSec / 60;
     const rank = over <= 3 ? ['S', '伝説の定時退社者'] : over <= 5 ? ['A', '華麗なる定時退社'] : over <= 8 ? ['B', 'ほぼ定時'] : ['C', '定時…とは'];
@@ -1816,7 +1838,7 @@ function controlsHTML(compact) {
 }
 let selStage = 0;
 function showSelect() {
-  state = 'select';
+  state = 'select'; SND.bgm('title'); SND.setDuck(1); SND.setTension(0);
   const c = CHARACTERS[0];
   const face = c.photo && PHOTOS[c.photo] ? `<img class="face sm" src="${PHOTOS[c.photo]}">` : '';
   const stageCards = STAGES.map((s, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${s.floor}</div><div class="snm">${s.name}</div><div class="sds">${s.desc}</div></div>`).join('');
@@ -1835,7 +1857,7 @@ function showSelect() {
   $('bGo').onclick = () => { if (IS_TOUCH) { try { const r = document.documentElement.requestFullscreen?.(); r && r.then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); } catch (e) {} } $('bGo').textContent = '読み込み中…'; setTimeout(() => startGame(CHARACTERS[0], selStage), 30); };
 }
 function showTitle() {
-  state = 'title';
+  state = 'title'; SND.bgm('title'); SND.setDuck(1); SND.setTension(0);
   overlay(`<h1>定時退社シミュレーター</h1><p class="big">17:59。今日こそ、定時で帰る。</p>
     <p>上司の視界（足もとの黄色い扇形）に入ると気づかれる。<br>メーターが満タンになると「ちょっといい？」が始まる。</p>
     <p>机の陰は<b>しゃがめば</b>見つかりにくい。ガラスの壁は視線を通すので要注意。</p>
@@ -1844,26 +1866,141 @@ function showTitle() {
   $('bStart').onclick = showSelect;
   if (window.__npc === undefined || window.__real === undefined) { $('bStart').disabled = true; $('bStart').textContent = '読み込み中…'; }
 }
+
+// ================== 音（BGM・効果音はすべてWeb Audioでその場で合成） ==================
+const SND = (() => {
+  let ctx = null, master, bgmBus, sfxBus, noiseBuf, muted = localStorage.getItem('teiji-mute') === '1';
+  let mode = null, step = 0, nextT = 0, timer = null, tension = 0, duck = 1;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+    master.connect(comp); comp.connect(ctx.destination);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = 0.42; bgmBus.connect(master);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = 0.8; sfxBus.connect(master);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    if (mode) { const m = mode; mode = null; bgm(m); }
+  }
+  // ---- 部品 ----
+  function tone(t, f, dur, { type = 'sine', vol = 0.2, a = 0.005, rel = null, bus = sfxBus, cutoff = 0, detune = 0, slide = 0 } = {}) {
+    if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); o.detune.value = detune;
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, f * slide), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (rel ?? dur));
+    let n = o; if (cutoff) { const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = cutoff; o.connect(fl); n = fl; }
+    n.connect(g); g.connect(bus); o.start(t); o.stop(t + (rel ?? dur) + 0.05);
+  }
+  function noise(t, dur, { vol = 0.2, type = 'highpass', f = 3000, q = 0.7, bus = sfxBus, a = 0.002 } = {}) {
+    if (!ctx) return;
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(fl); fl.connect(g); g.connect(bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+  }
+  // ---- BGM（オリジナルのループ。16ステップ×4小節） ----
+  const SONGS = {
+    title: { bpm: 84, root: 57, chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -2, 2]],
+      bass: [0, null, null, null, 0, null, 7, null, 0, null, null, null, -2, null, 3, null],
+      lead: [[12, 15, 19, null, 17, null, 15, null, 14, null, 12, null, null, null, 10, null], [12, null, 8, null, 7, null, 8, null, 10, null, null, null, null, null, null, null], [10, 14, 17, null, 15, null, 14, null, 12, null, 10, null, null, null, 9, null], [7, null, 10, null, 12, null, 14, null, 15, null, 14, null, 12, null, null, null]] },
+    stealth: { bpm: 104, root: 45, chords: [[0, 3, 7], [0, 3, 7], [-4, 0, 3], [-2, 1, 5]],
+      bass: [0, null, 0, 0, null, 0, 3, null, 0, null, 0, 0, null, 7, 6, null],
+      lead: [[null, null, null, null, 15, null, null, 14, null, null, 12, null, null, null, null, null], [null, null, null, null, 15, null, null, 17, null, null, 15, null, 14, null, null, null], [null, null, null, null, 11, null, null, 12, null, null, 14, null, null, null, null, null], [null, null, null, null, 13, null, 12, null, 10, null, null, null, null, null, null, null]] },
+  };
+  function schedule() {
+    if (!ctx || !mode) return;
+    const S = SONGS[mode], spb = 60 / (S.bpm * (mode === 'stealth' ? 1 + tension * 0.18 : 1)) / 4;
+    while (nextT < ctx.currentTime + 0.15) {
+      const t = nextT, bar = Math.floor(step / 16) % 4, i = step % 16, ch = S.chords[bar], dk = duck;
+      if (i === 0) for (const n of ch) tone(t, mtof(S.root + 12 + n), spb * 16, { type: 'sine', vol: (mode === 'stealth' ? 0.05 : 0.09) * dk, a: 0.4, bus: bgmBus, detune: (Math.random() - .5) * 8 });
+      const b = S.bass[i];
+      if (b !== null) tone(t, mtof(S.root - 12 + b + (bar === 2 ? -4 : bar === 3 ? -2 : 0)), spb * 1.6, { type: mode === 'stealth' ? 'sawtooth' : 'triangle', vol: (mode === 'stealth' ? 0.13 : 0.18) * dk, cutoff: mode === 'stealth' ? 420 + tension * 900 : 900, bus: bgmBus });
+      const l = S.lead[bar][i];
+      if (l !== null) tone(t, mtof(S.root + 12 + l + (mode === 'stealth' ? 0 : 0)), spb * 3, { type: mode === 'stealth' ? 'square' : 'triangle', vol: (mode === 'stealth' ? 0.035 : 0.13) * dk, cutoff: 2400, bus: bgmBus });
+      if (mode === 'stealth') {
+        if (i % 4 === 2) noise(t, 0.04, { vol: 0.05 * dk, f: 7000, bus: bgmBus });
+        if (i % 8 === 0) tone(t, 70, 0.18, { type: 'sine', vol: 0.18 * dk, slide: 0.5, bus: bgmBus });
+        if (tension > 0.05 && i % 2 === 1) noise(t, 0.03, { vol: 0.06 * tension * dk, f: 9000, bus: bgmBus });
+        if (tension > 0.5 && i % 4 === 0) tone(t, mtof(S.root + 24 + (i % 8 ? 1 : 0)), spb * 0.9, { type: 'sawtooth', vol: 0.03 * tension * dk, cutoff: 3000, bus: bgmBus });
+      } else if (i % 4 === 0) noise(t, 0.05, { vol: 0.025 * dk, f: 8000, bus: bgmBus });
+      nextT += spb; step++;
+    }
+  }
+  function bgm(m) {
+    if (mode === m && timer) return;
+    mode = m; step = 0;
+    if (!ctx) return;
+    nextT = ctx.currentTime + 0.08; clearInterval(timer); timer = m ? setInterval(schedule, 40) : null;
+  }
+  function stopBgm() { mode = null; clearInterval(timer); timer = null; }
+  const now = () => ctx ? ctx.currentTime : 0;
+  return {
+    init, bgm, stopBgm,
+    get muted() { return muted; },
+    toggleMute() { muted = !muted; localStorage.setItem('teiji-mute', muted ? '1' : '0'); if (master) master.gain.setTargetAtTime(muted ? 0 : 0.9, now(), 0.05); return muted; },
+    setTension(v) { tension = v; },
+    setDuck(v) { duck = v; if (bgmBus) bgmBus.gain.setTargetAtTime(0.42 * v, now(), 0.1); },
+    click() { tone(now(), 1400, 0.05, { type: 'square', vol: 0.05, cutoff: 3000 }); },
+    step(kind) { // walk / dash / crouch / box
+      const t = now();
+      if (kind === 'box') { noise(t, 0.16, { vol: 0.12, type: 'lowpass', f: 700 }); return; }
+      const v = kind === 'dash' ? 0.32 : kind === 'crouch' ? 0.05 : 0.13;
+      noise(t, kind === 'dash' ? 0.07 : 0.05, { vol: v, type: 'bandpass', f: kind === 'dash' ? 1800 : 1300, q: 1.2 });
+      tone(t, kind === 'dash' ? 95 : 120, 0.06, { vol: v * 0.8, slide: 0.6 });
+    },
+    rustle() { noise(now(), 0.18, { vol: 0.06, type: 'bandpass', f: 2500, q: 0.8, a: 0.04 }); },
+    boxIn() { const t = now(); noise(t, 0.25, { vol: 0.3, type: 'lowpass', f: 500 }); tone(t, 90, 0.2, { vol: 0.25, slide: 0.6 }); },
+    boxOut() { const t = now(); noise(t, 0.2, { vol: 0.2, type: 'lowpass', f: 900 }); tone(t + 0.05, 140, 0.12, { vol: 0.15, slide: 0.7 }); },
+    dial() { const t = now(); [[697, 1209], [770, 1336], [852, 1477]].forEach(([a, b], k) => { tone(t + k * 0.13, a, 0.09, { vol: 0.08 }); tone(t + k * 0.13, b, 0.09, { vol: 0.08 }); }); },
+    ring(dist = 5) {
+      const t = now() + 0.35, v = 0.16 * Math.max(0.25, 1 - dist / 25);
+      for (let r = 0; r < 2; r++) for (let k = 0; k < 8; k++) { const tt = t + r * 0.45 + k * 0.045; tone(tt, k % 2 ? 1150 : 1450, 0.04, { type: 'square', vol: v, cutoff: 4000 }); }
+    },
+    greet() { const t = now(); tone(t, 880, 0.12, { type: 'triangle', vol: 0.12 }); tone(t + 0.1, 1175, 0.18, { type: 'triangle', vol: 0.12 }); },
+    notice() { const t = now(); tone(t, 660, 0.12, { type: 'triangle', vol: 0.14 }); tone(t + 0.09, 990, 0.2, { type: 'triangle', vol: 0.12 }); },
+    heart(k) { const t = now(); tone(t, 55, 0.14, { vol: 0.35 * k, slide: 0.7 }); tone(t + 0.16, 50, 0.12, { vol: 0.25 * k, slide: 0.7 }); },
+    caught() {
+      const t = now(); noise(t, 0.6, { vol: 0.35, type: 'lowpass', f: 1800, a: 0.003 });
+      for (const [f, dt] of [[220, 0], [233, 0], [330, 0], [440, 0]]) tone(t + dt, f, 0.9, { type: 'sawtooth', vol: 0.09, cutoff: 2600, detune: (Math.random() - .5) * 20 });
+      tone(t, 60, 0.7, { vol: 0.5, slide: 0.5 });
+    },
+    fail() { const t = now() + 0.1; [[0, 64], [0.3, 63], [0.6, 62], [0.9, 61]].forEach(([d, m], k) => tone(t + d, mtof(m), k === 3 ? 1.2 : 0.32, { type: 'triangle', vol: 0.14, slide: k === 3 ? 0.94 : 1 })); },
+    success() { const t = now() + 0.05; [60, 64, 67, 72, 76, 79, 84].forEach((m, k) => tone(t + k * 0.09, mtof(m), k === 6 ? 1.2 : 0.3, { type: 'triangle', vol: 0.12 })); [60, 64, 67, 72].forEach(m => tone(t + 0.63, mtof(m), 1.4, { type: 'sine', vol: 0.06, a: 0.05 })); },
+    ding() { const t = now(); tone(t, 1319, 1.0, { vol: 0.14 }); tone(t + 0.35, 1047, 1.3, { vol: 0.14 }); },
+    tick() { tone(now(), 2200, 0.03, { type: 'square', vol: 0.03, cutoff: 5000 }); },
+    pause() { const t = now(); tone(t, 784, 0.1, { type: 'triangle', vol: 0.1 }); tone(t + 0.08, 523, 0.14, { type: 'triangle', vol: 0.1 }); },
+  };
+})();
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => SND.init(), { capture: true }));
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('button')) SND.click(); }, true);
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pauseGame(); });
+
 // ================== 一時停止 ==================
 let pausedAt = 0;
 function pauseGame() {
   if (state !== 'play') return;
-  state = 'pause'; pausedAt = performance.now(); keys[' '] = keys['shift'] = false; dashTouch = false;
+  state = 'pause'; pausedAt = performance.now(); SND.pause(); SND.setDuck(0.35); keys[' '] = keys['shift'] = false; dashTouch = false;
   if (document.pointerLockElement) document.exitPointerLock?.();
   overlay(`<h1>一時停止中</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}　現在 ${fmt(gameSec)}</p>
     <div class="pmenu"><button class="btn" id="bResume">ゲームに戻る</button>
     <button class="btn sub" id="bRestart">最初からやり直す</button>
     <button class="btn sub" id="bToSel">ステージ・難易度を選び直す</button>
-    <button class="btn sub" id="bToTitle">タイトルに戻る</button></div>
+    <button class="btn sub" id="bToTitle">タイトルに戻る</button>
+    <button class="btn sub" id="bPMute">${SND.muted ? '🔇 音：オフ（押すとオン）' : '🔊 音：オン（押すとオフ）'}</button></div>
     ${controlsHTML(true)}`);
   $('bResume').onclick = resumeGame;
+  $('bPMute').onclick = () => { SND.toggleMute(); muteLabel(); $('bPMute').textContent = SND.muted ? '🔇 音：オフ（押すとオン）' : '🔊 音：オン（押すとオフ）'; };
   $('bRestart').onclick = () => startGame(chara);
   $('bToSel').onclick = () => { leaveGame(); showSelect(); };
   $('bToTitle').onclick = () => { leaveGame(); showTitle(); };
 }
 function resumeGame() {
   if (state !== 'pause') return;
-  hideOverlay(); state = 'play'; last = performance.now();
+  hideOverlay(); state = 'play'; last = performance.now(); SND.setDuck(1);
   if (matchMedia('(pointer: fine)').matches) lockPointer();
 }
 function leaveGame() {
@@ -1873,6 +2010,9 @@ function leaveGame() {
   noiseRings.forEach(r => scene.remove(r.m)); noiseRings = [];
 }
 $('bPause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
+const muteLabel = () => { $('bMute').textContent = SND.muted ? '🔇 音オフ' : '🔊 音オン'; };
+$('bMute').addEventListener('click', e => { e.stopPropagation(); SND.init(); SND.toggleMute(); muteLabel(); });
+muteLabel();
 let hadLock = false;
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === view;
@@ -1910,7 +2050,7 @@ function loop(now) {
     if (d > 0.05) { const s = Math.min(d, 1.8 * dt); player.x += dx / d * s; player.z += dz / d * s; player.face = Math.atan2(dz, dx); }
     pl.root.position.set(player.x, 0, player.z); pl.root.rotation.y = Math.PI / 2 - player.face; animatePerson(pl, dt, d > 0.05 ? 1.8 : 0, false);
   }
-  const pv = state === 'play' ? 'block' : 'none'; if ($('bPause').style.display !== pv) $('bPause').style.display = pv;
+  const pv = state === 'play' ? 'block' : 'none'; if ($('bPause').style.display !== pv) { $('bPause').style.display = pv; document.body.classList.toggle('playing', state === 'play'); }
   updateCamera(dt);
   renderFrame();
   requestAnimationFrame(loop);
@@ -1941,7 +2081,7 @@ window.__validate = () => {
   return out;
 };
 window.__setYaw = v => { yaw = v; camSnap = true; };
-window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get pl() { return pl; } };
+window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get pl() { return pl; }, SND };
 
 buildStage(0);
 showTitle();

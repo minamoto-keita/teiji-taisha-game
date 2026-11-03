@@ -97,6 +97,37 @@
   .scard .sfl { font-size: 11px; color: #f2c94c; letter-spacing: .1em; } .scard .snm { font-size: 19px; font-weight: 900; margin-top: 2px; } .scard .sds { font-size: 12px; opacity: .8; margin-top: 6px; line-height: 1.6; }
   .qual { font: inherit; font-weight: 700; font-size: 13px; padding: 6px 16px; border-radius: 4px; cursor: pointer; background: transparent; color: #ecebe6; border: 1.5px solid rgba(255,255,255,.3); }
   .qual.sel { background: #ecebe6; color: #111; }
+  kbd { white-space: nowrap; }
+  .tbtn { background: rgba(14,17,22,.6) !important; }
+  @media (pointer: coarse) { #items { min-width: 0; padding: 6px 12px; } }
+  .tbtn.on { background: rgba(242,201,76,.75) !important; }
+  @media (max-width: 600px) {
+    #overlay { padding: 10px; }
+    .box { padding: 22px 16px; }
+    .box h1 { font-size: 24px; }
+    .box p { font-size: 13px; }
+    .box .big { font-size: 16px; }
+    .ctrlgrid { gap: 8px; }
+    .ctrlgrid div { padding: 9px 10px; }
+    .scard { width: 100%; }
+    .who .dp { line-height: 1.7; }
+    .diff { padding: 9px 14px; white-space: nowrap; }
+    #mission { min-width: 0; max-width: calc(100vw - 150px); padding: 8px 10px; gap: 8px; }
+    #mission canvas { width: 32px; height: 32px; }
+    #mission .title { font-size: 14px; } #mission .who { font-size: 11px; } #mission .sub { display: none; }
+    #clock { min-width: 0; max-width: 118px; padding: 8px 10px; }
+    #clock .t { font-size: 22px; } #clock .loc, #clock .goal { font-size: 10px; }
+    #items { top: 92px; }
+    #hint { left: 14px; right: auto; bottom: 200px; font-size: 12px; max-width: calc(100vw - 120px); }
+  }
+  @media (max-height: 500px) {
+    #mission { padding: 6px 10px; } #mission .sub { display: none; }
+    #clock { padding: 6px 10px; } #clock .t { font-size: 22px; }
+    #items { top: 102px; padding: 5px 10px; }
+    #minimap { width: 110px; height: 110px; } #meter { left: 120px; }
+    .tbtn { width: 62px; height: 62px; }
+    #tSneak { bottom: 90px; } #tDash { bottom: 160px; } #tCall { right: 90px; bottom: 125px; }
+  }
 </style>
 </head>
 <body>
@@ -1462,6 +1493,7 @@ function updateCoworkers(dt, crouch) {
   }
 }
 function updateItems() {
+  if (IS_TOUCH) { $('items').innerHTML = `<div class="row${phones ? '' : ' off'}" id="rPhone">📞 電話 <b style="color:#7fd4ff">${'●'.repeat(phones)}${'○'.repeat(2 - phones)}</b></div>`; return; }
   const K = (pc, tc) => IS_TOUCH ? `<kbd class="w">${tc}</kbd>` : pc;
   const ph = `<b style="color:#7fd4ff">${'●'.repeat(phones)}${'○'.repeat(2 - phones)}</b>`;
   $('items').innerHTML = `<div class="ch">操作</div>
@@ -1610,8 +1642,8 @@ function controlsHTML(compact) {
     ['<kbd>Q</kbd>', '電話（2回）', '上司の気を約5秒そらす', 1],
     ['<kbd>E</kbd>', '調べる', 'エレベーター等の前で'],
   ];
-  if (compact) return `<div class="ctrlttl">操作方法</div><div class="ctrlrow">${items.map(([k, n]) => `<span>${k} ${n.replace('（2回）', '')}</span>`).join('')}</div>`;
-  return `<div class="ctrlttl">操作方法</div><div class="ctrlgrid">${items.map(([k, n, d, hl]) => `<div${hl ? ' class="hl"' : ''}>${k}　${n}<span>${d}</span></div>`).join('')}</div>`;
+  if (compact) return `<div class="ctrlttl">操作方法</div><div class="ctrlrow">${items.map(([k, n]) => `<span>${IS_TOUCH ? k.replace('</kbd>', '：' + n.replace('（2回）', '') + '</kbd>').replace(/画面の(左|右)：/, '$1で') : k + ' ' + n.replace('（2回）', '')}</span>`).join('')}</div>`;
+  return `<div class="ctrlttl">操作方法</div><div class="ctrlgrid">${items.map(([k, n, d, hl]) => `<div${hl ? ' class="hl"' : ''}>${k}${IS_TOUCH ? '' : '　' + n}<span>${d}</span></div>`).join('')}</div>`;
 }
 let selStage = 0;
 function showSelect() {

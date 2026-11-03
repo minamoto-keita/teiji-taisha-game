@@ -34,7 +34,7 @@
   #progress .bar { width: 220px; height: 6px; background: #2a2f37; border-radius: 3px; overflow: hidden; margin-top: 8px; }
   #progress .fill { height: 100%; width: 0; background: #5dade2; }
   #vignette { inset: 0; box-shadow: inset 0 0 160px rgba(255,40,40,0); transition: box-shadow .2s; }
-  #overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  #overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: safe center; justify-content: center;
     background: rgba(5,6,8,.78); overflow: auto; padding: 20px; }
   #overlay.photo { background: linear-gradient(rgba(6,8,12,.72), rgba(6,8,12,.86)), var(--bg) center/cover; }
   .box { background: rgba(14,17,22,.94); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 28px 34px; text-align: center; max-width: 960px; }
@@ -70,7 +70,24 @@
     border: 2px solid rgba(242,201,76,.6); color: #f2c94c; font-weight: 800; font-size: 13px; touch-action: none; font-family: inherit; }
   .tbtn.on { background: rgba(242,201,76,.6); color: #111; }
   #tSneak { right: 20px; bottom: 120px; } #tAct { right: 104px; bottom: 76px; display: none; } #tDash { right: 20px; bottom: 200px; } #tCall { right: 104px; bottom: 160px; }
-  #items { position: fixed; left: 16px; top: 128px; font: 600 13px sans-serif; color: #fff; padding: 6px 10px; }
+  #items { position: fixed; left: 14px; top: 128px; color: #fff; padding: 10px 12px; min-width: 210px; }
+  #items .ch { font-size: 11px; color: #f2c94c; letter-spacing: .12em; font-weight: 800; margin-bottom: 6px; }
+  #items .row { display: flex; align-items: center; gap: 10px; padding: 4px 6px; margin: 0 -6px; border-radius: 4px; font-size: 14px; font-weight: 700; transition: background .15s; }
+  #items .row.on { background: rgba(242,201,76,.45); box-shadow: inset 3px 0 0 #f2c94c; }
+  #items .row.off { opacity: .4; }
+  #items .k { min-width: 64px; display: flex; gap: 3px; }
+  #items .note { font-size: 11px; font-weight: 600; opacity: .75; margin-left: auto; }
+  #items .lock { margin-top: 8px; font-size: 12px; font-weight: 700; color: #111; background: #f2c94c; border-radius: 4px; padding: 5px 8px; text-align: center; }
+  kbd { display: inline-block; min-width: 26px; padding: 3px 7px; font: 800 13px/1.2 inherit; font-family: inherit; text-align: center; color: #111;
+    background: #ecebe6; border-radius: 5px; box-shadow: 0 3px 0 #8e8c86; }
+  kbd.w { min-width: 54px; }
+  .ctrlgrid { display: grid; grid-template-columns: repeat(3, minmax(170px, 1fr)); gap: 10px; margin: 18px auto 0; max-width: 640px; text-align: left; }
+  .ctrlgrid div { background: #171b21; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 700; }
+  .ctrlgrid div span { display: block; font-size: 11px; font-weight: 600; opacity: .7; margin-top: 6px; }
+  .ctrlgrid div.hl { border-color: rgba(242,201,76,.7); }
+  .ctrlrow { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; margin-top: 10px; font-size: 14px; font-weight: 700; }
+  .ctrlttl { font-size: 13px; color: #f2c94c; letter-spacing: .12em; font-weight: 800; margin-top: 22px; }
+  @media (max-width: 640px) { .ctrlgrid { grid-template-columns: 1fr 1fr; } }
   .who { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 14px; text-align: left; }
   .face.sm { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
   .who .nm { font-size: 20px; font-weight: 900; } .who .dp { font-size: 12px; opacity: .85; margin-top: 4px; } .who b { color: #f2c94c; letter-spacing: 1px; }
@@ -1444,7 +1461,17 @@ function updateCoworkers(dt, crouch) {
     }
   }
 }
-function updateItems() { $('items').innerHTML = `電話 <b style="color:#7fd4ff">${'●'.repeat(phones)}${'○'.repeat(2 - phones)}</b>（Q）`; }
+function updateItems() {
+  const K = (pc, tc) => IS_TOUCH ? `<kbd class="w">${tc}</kbd>` : pc;
+  const ph = `<b style="color:#7fd4ff">${'●'.repeat(phones)}${'○'.repeat(2 - phones)}</b>`;
+  $('items').innerHTML = `<div class="ch">操作</div>
+    ${IS_TOUCH ? '' : '<div class="row"><span class="k"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>移動</div>'}
+    <div class="row" id="rCrouch"><span class="k">${K('<kbd class="w">Shift</kbd>', 'しゃがむ')}</span>しゃがむ</div>
+    <div class="row" id="rDash"><span class="k">${K('<kbd class="w">Space</kbd>', 'ダッシュ')}</span>ダッシュ<span class="note">足音注意</span></div>
+    <div class="row${phones ? '' : ' off'}" id="rPhone"><span class="k">${K('<kbd>Q</kbd>', '電話')}</span>電話 ${ph}</div>
+    <div class="row" id="rAct" style="display:none"><span class="k">${K('<kbd>E</kbd>', '調べる')}</span>調べる</div>
+    ${IS_TOUCH ? '' : '<div class="lock" id="rLock">画面をクリックでマウス視点</div>'}`;
+}
 let toastTimer = 0;
 function showToast(t) { const el = $('toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.opacity = 0, 2000); }
 
@@ -1463,9 +1490,13 @@ function updateHud(crouch, ex) {
   else if (meter > 0.05) h = '視線が外れるのを待つ／しゃがんで机に隠れる';
   else if (crouch) h = '机の陰に身を隠している';
   else if (player.dashing) h = 'ダッシュ中：足音で近くの上司に気づかれる！';
-  else h = 'Shift：しゃがむ ／ Space：ダッシュ（足音注意）／ Q：電話で上司の気をそらす';
+  else if (!IS_TOUCH && !document.pointerLockElement) h = '画面をクリックするとマウスで見回せる';
   $('hintText').textContent = h;
   $('tAct').style.display = ex && ex.type !== 'door' ? 'block' : 'none';
+  const tg = (id, on, cls = 'on') => { const el = $(id); if (el) el.classList.toggle(cls, on); };
+  tg('rCrouch', !!crouch); tg('rDash', !!player.dashing);
+  if ($('rAct')) $('rAct').style.display = ex && ex.type !== 'door' ? 'flex' : 'none';
+  if ($('rLock')) $('rLock').style.display = document.pointerLockElement ? 'none' : 'block';
   drawMinimap();
 }
 const fmt = s => { const t = 17 * 3600 + 59 * 60 + Math.floor(s); return String(Math.floor(t / 3600)).padStart(2, '0') + ':' + String(Math.floor(t % 3600 / 60)).padStart(2, '0'); };
@@ -1562,6 +1593,26 @@ function overlay(html, photo = false) {
 }
 function hideOverlay() { $('overlay').style.display = 'none'; }
 function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+function controlsHTML(compact) {
+  const items = IS_TOUCH ? [
+    ['<kbd class="w">画面の左</kbd>', '移動', 'なぞった方向に歩く'],
+    ['<kbd class="w">画面の右</kbd>', '視点', 'なぞってカメラを回す'],
+    ['<kbd class="w">しゃがむ</kbd>', 'しゃがむ', '机の陰に隠れられる', 1],
+    ['<kbd class="w">ダッシュ</kbd>', 'ダッシュ', '速いが足音で気づかれる'],
+    ['<kbd class="w">電話</kbd>', '電話（2回）', '上司の気を約5秒そらす', 1],
+    ['<kbd class="w">調べる</kbd>', '調べる', 'エレベーター等の前で'],
+  ] : [
+    ['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', '移動', '矢印キーでもOK'],
+    ['<kbd class="w">マウス</kbd>', '視点', '画面をクリックすると操作できる'],
+    ['<kbd class="w">Shift</kbd>', 'しゃがむ', '机の陰に隠れられる', 1],
+    ['<kbd class="w">Space</kbd>', 'ダッシュ', '速いが足音で気づかれる'],
+    ['<kbd>Q</kbd>', '電話（2回）', '上司の気を約5秒そらす', 1],
+    ['<kbd>E</kbd>', '調べる', 'エレベーター等の前で'],
+  ];
+  if (compact) return `<div class="ctrlttl">操作方法</div><div class="ctrlrow">${items.map(([k, n]) => `<span>${k} ${n.replace('（2回）', '')}</span>`).join('')}</div>`;
+  return `<div class="ctrlttl">操作方法</div><div class="ctrlgrid">${items.map(([k, n, d, hl]) => `<div${hl ? ' class="hl"' : ''}>${k}　${n}<span>${d}</span></div>`).join('')}</div>`;
+}
 let selStage = 0;
 function showSelect() {
   state = 'select';
@@ -1575,8 +1626,8 @@ function showSelect() {
     <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div>
     <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
     <div class="diffs"><div class="dlab">画質</div><div class="drow">${qs}</div></div>
-    <button class="btn" id="bGo">退社する</button>
-    <p class="keys">PC：WASDで移動・マウスで視点・Shiftでしゃがむ・Spaceでダッシュ・Qで電話・Eで調べる ／ スマホ：左で移動・右で視点・ボタンで操作</p>`, true);
+    ${controlsHTML(true)}
+    <button class="btn" id="bGo">退社する</button>`, true);
   document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
   document.querySelectorAll('.diff').forEach(el => el.onclick = () => { diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc; });
   document.querySelectorAll('.qual').forEach(el => el.onclick = () => { quality = el.dataset.q; localStorage.setItem('teiji-quality', quality); document.querySelectorAll('.qual').forEach(x => x.classList.toggle('sel', x === el)); onResize(); });
@@ -1587,6 +1638,7 @@ function showTitle() {
   overlay(`<h1>定時退社シミュレーター</h1><p class="big">17:59。今日こそ、定時で帰る。</p>
     <p>上司の視界（足もとの黄色い扇形）に入ると気づかれる。<br>メーターが満タンになると「ちょっといい？」が始まる。</p>
     <p>机の陰は<b>しゃがめば</b>見つかりにくい。ガラスの壁は視線を通すので要注意。</p>
+    ${controlsHTML()}
     <button class="btn" id="bStart">はじめる</button>`, true);
   $('bStart').onclick = showSelect;
   if (window.__npc === undefined || window.__real === undefined) { $('bStart').disabled = true; $('bStart').textContent = '読み込み中…'; }

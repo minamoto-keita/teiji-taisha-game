@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>定時退社シミュレーター</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,6 +45,7 @@
   .btn:disabled { opacity: .55; cursor: wait; }
   .btn { margin-top: 18px; font: inherit; font-weight: 800; font-size: 16px; padding: 11px 28px; background: #f2c94c; color: #111;
     border: 0; border-radius: 4px; cursor: pointer; }
+  .btn.start { display: block; margin: 16px auto 6px; font-size: 20px; padding: 14px 56px; }
   .btn.sub { background: transparent; color: #ecebe6; border: 1px solid rgba(255,255,255,.3); margin-left: 8px; }
   .keys { font-size: 12px; opacity: .7; margin-top: 14px; }
   .cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
@@ -172,6 +173,8 @@
     border-radius: 6px; background: rgba(14,17,22,.82); color: #ecebe6; border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
   body.playing #bMute { top: 14px; right: auto; left: calc(50% + 86px); }
   @media (max-height: 500px) { body.playing #bMute { top: 8px; left: calc(50% + 74px); padding: 5px 10px; } }
+  @media (pointer: coarse) { #overlay { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px); padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+    .btn.start { margin: 10px auto 4px; font-size: 18px; padding: 12px 48px; } }
 </style>
 </head>
 <body>
@@ -1532,9 +1535,10 @@ function update(dt) {
     if (onPhone) { b.phone -= dt; if (b.ring > 0) b.ring -= dt; }
     const inCone = !onPhone && d < range && Math.abs(angDiff(toP, b.ang)) < b.fov / 2 && lineOfSight(b.x, b.z, player.x, player.z, crouch);
     if (player.dashing && d < NOISE_R && !onPhone) b.sus = Math.min(0.95, b.sus + 1.5 * D().gain * dt);
-    const bump = d < 1.0 && lineOfSight(b.x, b.z, player.x, player.z, false);
     const boxStill = inBox && player.speed < 0.1;
-    if (bump || (inCone && !boxStill)) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (inBox ? 0.4 : crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
+    const bump = (inBox ? !boxStill && d < 0.7 : d < 1.0) && lineOfSight(b.x, b.z, player.x, player.z, false);
+    const boxSeen = inCone && (!inBox || (!boxStill && d < range * 0.6));
+    if (bump || boxSeen) b.sus = Math.min(1, b.sus + (bump ? 8 : (0.5 + 1.5 * (1 - d / range)) * (inBox ? 0.25 : crouch ? 0.7 : 1) / chara.stealth * D().gain) * dt);
     else b.sus = Math.max(0, b.sus - D().decay * dt);
     if (b.sus > maxSus) { maxSus = b.sus; seer = b; }
     let moving = 0;
@@ -1619,7 +1623,7 @@ function spawnCardboards() {
   }
 }
 function nearCardboard() {
-  let best = null, bd = 1.1;
+  let best = null, bd = 1.6;
   for (const c of cardboards) { const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = c; } }
   return best;
 }
@@ -1859,10 +1863,10 @@ function showSelect() {
 function showTitle() {
   state = 'title'; SND.bgm('title'); SND.setDuck(1); SND.setTension(0);
   overlay(`<h1>定時退社シミュレーター</h1><p class="big">17:59。今日こそ、定時で帰る。</p>
+    <button class="btn start" id="bStart">はじめる</button>
     <p>上司の視界（足もとの黄色い扇形）に入ると気づかれる。<br>メーターが満タンになると「ちょっといい？」が始まる。</p>
     <p>机の陰は<b>しゃがめば</b>見つかりにくい。ガラスの壁は視線を通すので要注意。</p>
-    ${controlsHTML()}
-    <button class="btn" id="bStart">はじめる</button>`, true);
+    ${controlsHTML()}`, true);
   $('bStart').onclick = showSelect;
   if (window.__npc === undefined || window.__real === undefined) { $('bStart').disabled = true; $('bStart').textContent = '読み込み中…'; }
 }

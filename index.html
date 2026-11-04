@@ -20,11 +20,13 @@
   #clock { top: 14px; right: 14px; text-align: right; min-width: 180px; }
   #clock .t { font-size: 28px; font-weight: 800; letter-spacing: .04em; }
   #clock .loc { font-size: 12px; margin-top: 2px; } #clock .goal { font-size: 11px; color: #f2c94c; margin-top: 2px; }
+  :root { --mm: 180px; }
   #mapWrap { left: 14px; bottom: 14px; }
-  #minimap { width: 150px; height: 150px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(10,12,15,.7); display: block; }
+  @media (pointer: coarse) { #mapWrap { left: calc(14px + var(--mm) * 1.5); } }
+  #minimap { width: var(--mm); height: var(--mm); border-radius: 50%; border: 2px solid rgba(255,255,255,.25); background: rgba(10,12,15,.7); display: block; }
   #stLabel { position: absolute; left: 0; top: -26px; font-size: 12px; padding: 3px 10px; border-radius: 3px; background: rgba(30,90,60,.85); }
   #stLabel.warn { background: rgba(160,120,20,.9); } #stLabel.bad { background: rgba(170,40,45,.92); }
-  #meter { position: absolute; left: 160px; bottom: 8px; width: 120px; height: 6px; background: #2a2f37; border-radius: 3px; overflow: hidden; }
+  #meter { position: absolute; left: calc(var(--mm) + 10px); bottom: 8px; width: 120px; height: 6px; background: #2a2f37; border-radius: 3px; overflow: hidden; }
   #meterFill { height: 100%; width: 0; background: #e7b931; }
   #hint { right: 14px; bottom: 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
   #hint .chk { width: 14px; height: 14px; border: 1.5px solid #ecebe6; border-radius: 2px; }
@@ -46,6 +48,8 @@
   .btn { margin-top: 18px; font: inherit; font-weight: 800; font-size: 16px; padding: 11px 28px; background: #f2c94c; color: #111;
     border: 0; border-radius: 4px; cursor: pointer; }
   .btn.start { display: block; margin: 16px auto 6px; font-size: 20px; padding: 14px 56px; }
+  a.btn { display: inline-block; text-decoration: none; }
+  table.rk { margin: 10px auto 0; border-collapse: collapse; font-size: 13px; } table.rk td, table.rk th { padding: 3px 10px; border-bottom: 1px solid rgba(255,255,255,.12); } table.rk th { font-size: 11px; opacity: .6; font-weight: 600; } table.rk tr.me td { color: #f2c94c; font-weight: 800; }
   .btn.sub { background: transparent; color: #ecebe6; border: 1px solid rgba(255,255,255,.3); margin-left: 8px; }
   .keys { font-size: 12px; opacity: .7; margin-top: 14px; }
   .cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
@@ -95,6 +99,7 @@
   .scards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
   .sdesc { margin-top: 8px; font-size: 13px; opacity: .85; min-height: 1.6em; }
   .scard { text-align: left; padding: 10px 12px; border-radius: 8px; cursor: pointer; background: #171b21; border: 2px solid rgba(255,255,255,.1); transition: border-color .12s, transform .12s; }
+  .sgrp { font-size: 12px; opacity: .7; margin-top: 10px; text-align: left; } .scard .sbest { font-size: 11px; color: #7fd4ff; margin-top: 3px; }
   .scard:hover, .scard.sel { border-color: #f2c94c; transform: translateY(-2px); }
   .scard .sfl { font-size: 11px; color: #f2c94c; letter-spacing: .1em; } .scard .snm { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 900; margin-top: 2px; } .scard .sds { font-size: 12px; opacity: .8; margin-top: 6px; line-height: 1.6; }
   .qual { font: inherit; font-weight: 700; font-size: 13px; padding: 6px 16px; border-radius: 4px; cursor: pointer; background: transparent; color: #ecebe6; border: 1.5px solid rgba(255,255,255,.3); }
@@ -126,7 +131,7 @@
     #mission { padding: 6px 10px; } #mission .sub { display: none; }
     #clock { padding: 6px 10px; } #clock .t { font-size: 22px; }
     #items { top: 102px; padding: 5px 10px; }
-    #minimap { width: 110px; height: 110px; } #meter { left: 120px; }
+    :root { --mm: 130px; }
     .tbtn { width: 62px; height: 62px; }
     #tSneak { bottom: 90px; } #tDash { bottom: 160px; } #tCall { right: 90px; bottom: 125px; } #tAct { right: 160px; bottom: 30px; }
   }
@@ -1250,7 +1255,7 @@ const STAGES = [
     },
   },
   {
-    id: 'exec', annexZ: 11.7, floor: '本社 12F', name: '役員フロア', W: 36, D: 24, H: 2.9,
+    id: 'exec', floor: '本社 12F', name: '役員フロア', W: 36, D: 24, H: 2.9,
     desc: 'ガラス張りの会議室が並ぶ廊下。ガラスは視線を通す。社長室に隠れながら奥のエレベーターへ。',
     goal: '目標：奥のエレベーター or 非常階段',
     bosses: [
@@ -1326,7 +1331,7 @@ const STAGES = [
     },
   },
   {
-    id: 'lobby', annexZ: 4.5, floor: '本社 1F', name: 'エントランス', W: 34, D: 26, H: 4.2,
+    id: 'lobby', floor: '本社 1F', name: 'エントランス', W: 34, D: 26, H: 4.2,
     desc: '最後の関門。セキュリティゲートを抜け、大理石のロビーを横切って正面玄関から外へ。',
     goal: '目標：正面玄関（自動ドア）から外へ',
     bosses: [
@@ -1430,7 +1435,7 @@ const STAGES = [
     },
   },
   {
-    id: 'dev', annexZ: 14.5, floor: '本社 5F', name: '開発部', W: 38, D: 26, H: 2.8,
+    id: 'dev', floor: '本社 5F', name: '開発部', W: 38, D: 26, H: 2.8,
     desc: 'モニターがずらりと並ぶエンジニアの島。サーバールームのガラス越しの視線に注意。',
     goal: '目標：エレベーター or 非常階段',
     bosses: [
@@ -1519,7 +1524,7 @@ const STAGES = [
     },
   },
   {
-    id: 'cafe', annexZ: 22.5, floor: '本社 10F', name: '社員食堂', W: 38, D: 26, H: 3.0,
+    id: 'cafe', floor: '本社 10F', name: '社員食堂', W: 38, D: 26, H: 3.0,
     desc: '夕方の食堂は残業前の腹ごしらえ中。テーブルの陰にしゃがみながら進もう。',
     goal: '目標：エレベーター or 非常階段',
     bosses: [
@@ -1563,7 +1568,7 @@ const STAGES = [
     },
   },
   {
-    id: 'training', annexZ: 3.5, floor: '本社 6F', name: '研修センター', W: 38, D: 24, H: 2.8,
+    id: 'training', floor: '本社 6F', name: '研修センター', W: 38, D: 24, H: 2.8,
     desc: '新人研修の真っ最中。講師の目を盗んで教室を抜け、大会議室と廊下を通ってエレベーターへ。',
     goal: '目標：廊下の先のエレベーター or 非常階段',
     bosses: [
@@ -1656,7 +1661,7 @@ const STAGES = [
     },
   },
   {
-    id: 'archive', annexZ: 23.5, floor: '本社 B2', name: '資料室・倉庫', W: 34, D: 26, H: 3.0,
+    id: 'archive', floor: '本社 B2', name: '資料室・倉庫', W: 34, D: 26, H: 3.0,
     desc: '背の高い棚が迷路のように並ぶ倉庫。見通しは悪いが、角を曲がると上司と鉢合わせ。',
     goal: '目標：北東の搬出口から外へ',
     bosses: [
@@ -1707,6 +1712,8 @@ const ROUTES = [
   { name: '倉庫経由', floors: ['call', 'soumu', 'archive'], desc: 'コールセンター、総務フロア、地下倉庫の3フロア。見通しの悪さが増していく。' },
   { name: '全館縦断', floors: ['exec', 'cafe', 'call', 'lobby'], desc: '最上階の役員フロアから4フロアを下りきる最長ルート。腕に自信がある人向け。' },
 ];
+for (const S of STAGES) S.music = { exec: 'jazz', lobby: 'jazz', cafe: 'jazz', parking: 'dark', archive: 'dark' }[S.id] || 'stealth';
+for (const S of STAGES) ROUTES.push({ name: S.name, floors: [S.id], desc: S.desc, single: true });
 let routeIdx = 0, floorStep = 0;
 const ROUTE = () => ROUTES[routeIdx];
 const floorIndex = id => STAGES.findIndex(s => s.id === id);
@@ -1818,6 +1825,13 @@ function makeBoss(d) {
     const b = { ...d, p, x: d.path[0][0], z: d.path[0][1], wp: 1 % d.path.length, wait: d.path[0][2], look: 0, sus: 0,
       fov: 1.22 * D().fov, range: 9 * D().range, ang: 0, baseAng: 0 };
     b.speed = d.speed * D().speed;
+    b.dir = 1; b.spMul = 1; b.lookPh = Math.random() * 6; b.glanceT = 3 + Math.random() * 6; b.swMul = 1;
+    // 巡回ルートのどこから始めるかは毎回ちがう
+    if (!d.temp && d.path.length > 1 && !d.sweep) {
+      const k = Math.floor(Math.random() * d.path.length), a = d.path[k], n2 = d.path[(k + 1) % d.path.length], t = Math.random();
+      b.x = a[0] + (n2[0] - a[0]) * t; b.z = a[1] + (n2[1] - a[1]) * t; b.wp = (k + 1) % d.path.length; b.wait = 0;
+      if (d.path.length > 2 && Math.random() < 0.5) { b.dir = -1; b.wp = k; }
+    }
     if (d.path.length > 1) { const n = d.path[b.wp]; b.ang = b.baseAng = Math.atan2(n[1] - b.z, n[0] - b.x); }
     if (d.sweep) b.ang = b.baseAng = d.sweep.center;
     const N = 44, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array((N + 2) * 3), 3));
@@ -1917,14 +1931,15 @@ function startGame(c, rIdx = routeIdx, fromStep = 0) {
   pl.crouchT = 0; pl.defeated = false; pl.defT = 0; camSnap = true;
   $('vignette').style.boxShadow = 'none'; $('mission').classList.remove('alert');
   scene.add(pl.root);
-  phones = 2; gameSec = 0;
+  phones = 2;
+  if (fromStep === 0) { gameSec = 0; noticeCount = 0; continued = false; } else continued = true; // 途中のフロアからやり直したときは時間を引き継ぐ
   placeOnFloor();
   const g = $('mFace').getContext('2d'); g.clearRect(0, 0, 80, 80);
   if (c.photo && PHOTOS[c.photo]) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0, 80, 80); im.src = PHOTOS[c.photo]; }
   else drawFaceCanvas(g, 80, c);
   $('mWho').textContent = `${c.name} ｜ ${c.dept}`;
   $('dialog').style.display = 'none';
-  hideOverlay(); state = 'play'; SND.bgm('stealth'); SND.setDuck(1); SND.setTension(0);
+  hideOverlay(); state = 'play'; SND.bgm(STAGE.music || 'stealth'); SND.setDuck(1); SND.setTension(0);
   if (matchMedia('(pointer: fine)').matches) lockPointer();
 }
 function placeOnFloor() {
@@ -1932,7 +1947,7 @@ function placeOnFloor() {
   player = { x: st.x, z: st.z, face: st.yaw === 0 ? Math.PI / 2 : st.yaw === Math.PI / 2 ? 0 : 0, r: 0.3, speed: 0 };
   player.face = Math.atan2(Math.cos(st.yaw), Math.sin(st.yaw));
   yaw = st.yaw; pitch = 0.3; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null; exitTarget = null;
-  spawnBosses(); spawnCardboards(); spawnDesks(); player.inBox = null; player.atDesk = null; if (pl) pl.sitting = false; player.callT = 0; pl.root.visible = true; pl.phoneT = 0;
+  spawnBosses(); spawnCardboards(); spawnDesks(); spawnPals(); SND.bgm(STAGE.music || 'stealth'); player.inBox = null; player.atDesk = null; if (pl) pl.sitting = false; player.callT = 0; pl.root.visible = true; pl.phoneT = 0;
   graceT = 4; noiseRings.forEach(r => scene.remove(r.m)); noiseRings = []; noiseT = 0;
   (STAGE.coworkers || []).forEach(c => { c.cool = Math.hypot(c.x - player.x, c.z - player.z) < 2.5 ? 25 : 0; c.say.visible = false; c.sayT = 0; });
   $('items').style.display = 'block'; updateItems();
@@ -1963,7 +1978,7 @@ function doAction() {
   if (player.atDesk) return leaveDesk();
   if (player.inBox) return leaveBox();
   const ex = exitAt(player.x, player.z);
-  if (!ex) { const n = nearSpot(); if (n && n.box) enterBox(n.box); else if (n && n.desk) enterDesk(n.desk); return; }
+  if (!ex) { const n = nearSpot(); if (n && n.box) enterBox(n.box); else if (n && n.desk) enterDesk(n.desk); else if (n && n.help) askHelp(n.help); return; }
   if (ex.type === 'stairs') { if (!lastFloor()) return nextFloor('非常階段で下の階へ…'); exitTarget = ex.target; return escape('非常階段で脱出'); }
   if (ex.type === 'elev' && elevWait < 0) {
     if (elevCall) return showToast(elevCall.boss ? 'エレベーターに上司が乗っている。いまは離れて隠れよう' : 'エレベーターは使用中');
@@ -1978,6 +1993,7 @@ function update(dt) {
   const atDesk = !!player.atDesk;
   const crouch = !atDesk && (inBox || keys['shift'] || keys['c'] || sneakToggle);
   if (player.callT > 0) player.callT -= dt;
+  if (player.talkT > 0) player.talkT -= dt;
   let f = 0, r = 0;
   if (keys['w'] || keys['arrowup']) f += 1; if (keys['s'] || keys['arrowdown']) f -= 1;
   if (keys['d'] || keys['arrowright']) r += 1; if (keys['a'] || keys['arrowleft']) r -= 1;
@@ -1988,7 +2004,7 @@ function update(dt) {
   const dash = !crouch && (keys[' '] || dashTouch);
   const sp = (inBox ? 0.95 : crouch ? 1.25 : dash ? 4.3 : 2.5) * chara.speed;
   if (elevWait >= 0 && ml > 0.5) { elevWait = -1; if (elevCall && !elevCall.boss) elevCall = null; }
-  const frozen = elevWait >= 0 || player.callT > 0 || atDesk;
+  const frozen = elevWait >= 0 || player.callT > 0 || player.talkT > 0 || atDesk;
   if (frozen) { mx = mz = 0; }
   if (ml > 0.05 && !frozen) {
     player.x += mx * sp * dt; player.z += mz * sp * dt; resolveCollision(player, player.r);
@@ -2010,6 +2026,7 @@ function update(dt) {
   if (crouch !== prevCrouch && !inBox) SND.rustle(); prevCrouch = crouch;
   updateNoise(dt);
   updateCoworkers(dt, crouch || atDesk);
+  updatePals(dt, crouch);
 
   let maxSus = 0, seer = null;
   for (const b of bosses) {
@@ -2031,18 +2048,36 @@ function update(dt) {
     if (onPhone) { b.ang += angDiff(b.phoneAng, b.ang) * Math.min(1, dt * 4); b.sus = Math.max(0, b.sus - 0.6 * dt); }
     else if (b.lookAt && b.lookAt.t > 0) { b.lookAt.t -= dt; b.ang += angDiff(Math.atan2(b.lookAt.z - b.z, b.lookAt.x - b.x), b.ang) * Math.min(1, dt * 4); }
     else if (b.sus > 0.25) b.ang += angDiff(toP, b.ang) * Math.min(1, dt * 3);
-    else if (b.sweep) { b.look += dt; b.ang = b.sweep.center + Math.sin(b.look * b.sweep.speed) * b.sweep.amp; }
+    else if (b.sweep) {
+      b.look += dt * b.swMul; b.glanceT -= dt;
+      if (b.glanceT <= 0) { // ときどき予想外の方向をちらっと見る
+        b.glanceT = 4 + Math.random() * 6; b.swMul = 0.6 + Math.random() * 0.9;
+        const a = b.sweep.center + (Math.random() - 0.5) * (b.sweep.amp * 2 + 1.2);
+        b.lookAt = { x: b.x + Math.cos(a) * 3, z: b.z + Math.sin(a) * 3, t: 1.0 + Math.random() * 1.4 };
+      }
+      b.ang += angDiff(b.sweep.center + Math.sin(b.look * b.sweep.speed) * b.sweep.amp, b.ang) * Math.min(1, dt * 4);
+    }
     else {
       const n = b.path[b.wp];
-      if (b.wait > 0) { b.wait -= dt; b.look += dt; b.ang = b.baseAng + Math.sin(b.look * 1.4) * 0.85; }
+      if (b.wait > 0) { b.wait -= dt; b.look += dt; b.ang += angDiff(b.baseAng + Math.sin(b.look * 1.4 + b.lookPh) * 0.85, b.ang) * Math.min(1, dt * 5); }
       else {
         const ddx = n[0] - b.x, ddz = n[1] - b.z, dd = Math.hypot(ddx, ddz);
         b.ang += angDiff(Math.atan2(ddz, ddx), b.ang) * Math.min(1, dt * 5);
         if (dd < 0.05) {
-          b.x = n[0]; b.z = n[1]; b.wait = n[2]; b.look = 0; b.wp = (b.wp + 1) % b.path.length;
+          const L = b.path.length; b.x = n[0]; b.z = n[1]; b.look = 0;
+          if (b.temp) { b.wait = n[2]; b.wp = (b.wp + 1) % L; }
+          else { // 待ち時間・向き・次の行き先・歩く速さを毎回ゆらす
+            b.wait = n[2] * (0.45 + Math.random() * 1.2);
+            if (L > 2 && Math.random() < 0.3) b.dir = -b.dir;
+            b.wp = (b.wp + b.dir + L) % L; b.spMul = 0.8 + Math.random() * 0.45; b.lookPh = Math.random() * 6;
+          }
           const nn = b.path[b.wp]; b.baseAng = Math.atan2(nn[1] - b.z, nn[0] - b.x);
+          if (!b.temp && Math.random() < 0.25) b.baseAng += (Math.random() - 0.5) * 2.6;
           if (b.temp) { if (b.wp === 2) b.baseAng = b.outAng; if (b.wp === 0) b.done = true; }
-        } else { const s = Math.min(dd, b.speed * dt); b.x += ddx / dd * s; b.z += ddz / dd * s; moving = b.speed; }
+        } else if (!b.temp && Math.random() < dt * 0.07) { // 歩いている途中で急に振り返る（たまに引き返す）
+          b.wait = 0.8 + Math.random() * 1.6; b.look = 0; b.baseAng = b.ang + Math.PI * (0.6 + Math.random() * 0.8) * (Math.random() < 0.5 ? 1 : -1);
+          if (Math.random() < 0.35) { const L = b.path.length; const prev = (b.wp - b.dir + L) % L; b.dir = -b.dir; b.wp = prev; }
+        } else { const s = Math.min(dd, b.speed * b.spMul * dt); b.x += ddx / dd * s; b.z += ddz / dd * s; moving = b.speed * b.spMul; }
       }
     }
     placeBoss(b, dt, moving);
@@ -2055,7 +2090,7 @@ function update(dt) {
   }
   meter = maxSus;
   SND.setTension(meter);
-  if (meter > 0.05 && prevMeter <= 0.05) SND.notice();
+  if (meter > 0.05 && prevMeter <= 0.05) { SND.notice(); noticeCount++; }
   prevMeter = meter;
   if (meter > 0.3) { heartT -= dt; if (heartT <= 0) { heartT = 1.0 - meter * 0.55; SND.heart(Math.min(1, meter)); } } else heartT = 0;
   if (meter >= 1) return caught(seer, atDesk ? pick(DESK_LINES) : pick(BOSS_LINES[seer.name] || BOSS_LINES['課長']));
@@ -2092,7 +2127,7 @@ function update(dt) {
       if (c.boss) {
         // 隠れていれば、本部長はホールを見回してからエレベーターで去る
         const ox = e.x + Math.sin(e.ry) * 2.4, oz = e.z + Math.cos(e.ry) * 2.4;
-        const b = makeBoss({ name: '本部長', look: 'honbu', colors: { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true }, speed: 0.8, path: [[ix, iz, 0.7], [ox, oz, 3.5], [ix, iz, 0]] });
+        const b = makeBoss({ temp: true, name: '本部長', look: 'honbu', colors: { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true }, speed: 0.8, path: [[ix, iz, 0.7], [ox, oz, 3.5], [ix, iz, 0]] });
         b.temp = true; b.elev = e; b.outAng = Math.atan2(oz - iz, ox - ix); bosses.push(b);
         c.out = b; elevWait = -1; $('progress').style.display = 'none';
       } else {
@@ -2185,6 +2220,7 @@ function nearSpot() {
   let best = null, bd = 1.6;
   for (const c of cardboards) { const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = { box: c }; } }
   for (const k of desks) { const d = Math.min(Math.hypot(k.ox - player.x, k.oz - player.z), Math.hypot(k.x - player.x, k.z - player.z)); if (d < Math.min(bd, 1.3)) { bd = d; best = { desk: k }; } }
+  for (const c of pals) if (c.kind === 'help' && !c.used) { const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < Math.min(bd, 1.8)) { bd = d; best = { help: c }; } }
   return best;
 }
 function enterDesk(d) {
@@ -2239,6 +2275,114 @@ function updateCoworkers(dt, crouch) {
     }
   }
 }
+// ================== 歩き回る同僚（話しかけて足止めしてくる人・助けてくれる同期） ==================
+const CHAT_LINES = ['のみいこうよ！今日空いてる？', '有機抹茶ラテ！一緒に飲もう！', '聞いてよ〜、昨日さぁ…', 'ねえ、週末なにしてた？', 'この前のランチのお店、また行かない？', '推しのライブ当たったの！聞いて！', 'ちょっと、このお菓子食べてみて！', '来月の旅行どこ行くか決めた？'];
+const CALL_LINES = ['あ、おつかれ〜！ちょっと待って！', 'ねえねえ！', 'あっ、いたいた！'];
+let pals = [], palLayer = new THREE.Group(); scene.add(palLayer);
+let NAV = null;
+function talkSprite(text, h = 0.32) {
+  const c = document.createElement('canvas').getContext('2d'); c.font = 'bold 44px sans-serif';
+  const w = Math.max(320, Math.ceil(c.measureText(text).width) + 70);
+  const t = canvasTex(w, 128, (g, W, H) => {
+    g.fillStyle = 'rgba(255,255,255,.96)'; g.beginPath(); g.roundRect(8, 8, W - 16, H - 40, 26); g.fill();
+    g.beginPath(); g.moveTo(W / 2 - 14, H - 33); g.lineTo(W / 2, H - 8); g.lineTo(W / 2 + 14, H - 33); g.fill();
+    g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#222'; g.fillText(text, W / 2, (H - 32) / 2 + 6);
+  });
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.scale.set(h * w / 128, h, 1); sp.renderOrder = 11; return sp;
+}
+// 歩ける場所の格子（0.5m）と経路探索
+function buildNav() {
+  const X0 = STAGE.X0 || 0, cs = 0.5, nx = Math.ceil((STAGE.W - X0) / cs), nz = Math.ceil(STAGE.D / cs), free = new Uint8Array(nx * nz);
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) free[j * nx + i] = hitsAny(X0 + i * cs + cs / 2, j * cs + cs / 2, 0.32) ? 0 : 1;
+  NAV = { X0, cs, nx, nz, free };
+}
+const navC = (x, z) => [Math.max(0, Math.min(NAV.nx - 1, Math.floor((x - NAV.X0) / NAV.cs))), Math.max(0, Math.min(NAV.nz - 1, Math.floor(z / NAV.cs)))];
+const navP = k => [NAV.X0 + (k % NAV.nx) * NAV.cs + NAV.cs / 2, Math.floor(k / NAV.nx) * NAV.cs + NAV.cs / 2];
+function navFlood(x, z) { // 到達できるセルまでの距離
+  const { nx, nz, free } = NAV, dist = new Int32Array(nx * nz).fill(-1), [i0, j0] = navC(x, z), q = [j0 * nx + i0]; dist[q[0]] = 0;
+  for (let h = 0; h < q.length; h++) { const k = q[h], i = k % nx, j = (k - i) / nx;
+    for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const i2 = i + a, j2 = j + b; if (i2 < 0 || j2 < 0 || i2 >= nx || j2 >= nz) continue; const k2 = j2 * nx + i2; if (dist[k2] >= 0 || !free[k2]) continue; dist[k2] = dist[k] + 1; q.push(k2); } }
+  return dist;
+}
+function navPath(x0, z0, x1, z1) {
+  const { nx } = NAV, dist = navFlood(x1, z1); let [i, j] = navC(x0, z0), k = j * nx + i;
+  if (dist[k] < 0) return [];
+  const out = [];
+  while (dist[k] > 0) { const i0 = k % nx, j0 = (k - i0) / nx; let nk = k;
+    for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k2 = (j0 + b) * nx + i0 + a; if (i0 + a >= 0 && i0 + a < nx && j0 + b >= 0 && j0 + b < NAV.nz && dist[k2] >= 0 && dist[k2] < dist[nk]) nk = k2; }
+    if (nk === k) break; k = nk; out.push(navP(k)); }
+  return out.filter((p, n) => n === out.length - 1 || n % 2 === 1);
+}
+function spawnPals() {
+  palLayer.clear(); pals = []; buildNav();
+  const st = STAGE.start, dist = navFlood(st.x, st.z), cand = [];
+  const nearExit = (x, z) => STAGE.exits.some(e => Math.hypot(x - (e.zone[0] + e.zone[2]) / 2, z - (e.zone[1] + e.zone[3]) / 2) < 4);
+  let maxD = 0; for (const v of dist) maxD = Math.max(maxD, v);
+  for (let k = 0; k < dist.length; k++) { if (dist[k] < 18) continue; const [x, z] = navP(k); if (!nearExit(x, z) && !hitsAny(x, z, 0.5)) cand.push([x, z, dist[k]]); }
+  if (!cand.length) return;
+  const nChat = { beginner: 1, easy: 1, normal: 2, hard: 3, oni: 3 }[diffKey] ?? 2;
+  const look = () => ({ shirt: pick(['#f3d9e4', '#e6eef7', '#fff3d6', '#d9efe2']), pants: '#2b2b2f', hair: pick(['#1b1b1b', '#5a3a28']), style: pick(['bob', 'long', 'short']), smile: true });
+  const used = [];
+  const take = f => { const c = cand.filter(f).filter(c => used.every(u => Math.hypot(u[0] - c[0], u[1] - c[1]) > 6)); const r = (c.length ? c : cand)[Math.floor(Math.random() * (c.length || cand.length))]; used.push(r); return r; };
+  for (let n = 0; n < nChat; n++) {
+    const [x, z] = take(() => true), p = makeCoworker(look());
+    const tag = labelSprite('同僚', '#ffb3d9', 0.26);
+    palLayer.add(p.root, tag);
+    pals.push({ kind: 'chat', x, z, p, tag, face: Math.random() * 6, st: 'wander', path: [], wait: Math.random() * 3, cool: 4, t: 0, repath: 0, say: null, sayT: 0 });
+  }
+  const [hx, hz] = take(c => c[2] > maxD * 0.3 && c[2] < maxD * 0.75), hp = makeCoworker(look());
+  const htag = labelSprite('同期（味方）', '#7dffa8', 0.26), hring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 32), new THREE.MeshBasicMaterial({ color: '#5be37d', transparent: true, opacity: 0.8, toneMapped: false }));
+  hring.rotation.x = -Math.PI / 2; hring.position.set(hx, 0.03, hz);
+  palLayer.add(hp.root, htag, hring);
+  pals.push({ kind: 'help', x: hx, z: hz, p: hp, tag: htag, ring: hring, face: Math.random() * 6, used: false, say: null, sayT: 0 });
+}
+function palSay(c, text, t) { if (c.say) palLayer.remove(c.say); c.say = talkSprite(text); palLayer.add(c.say); c.sayT = t; }
+function askHelp(c) {
+  c.used = true; c.ring.visible = false; palSay(c, '任せて！ 部長〜、お電話です！', 3); SND.greet();
+  const near = bosses.filter(b => !b.temp).map(b => [b, Math.hypot(b.x - player.x, b.z - player.z)]).filter(([, d]) => d < 18).sort((a, b) => a[1] - b[1]).slice(0, 3);
+  for (const [b] of near) { b.phone = 8; b.ring = 0; b.sus = 0; b.phoneAng = Math.atan2(c.z - b.z, c.x - b.x); }
+  showToast(near.length ? `同期が上司${near.length}人を電話で引きつけてくれた！今のうちに（8秒）` : '同期「近くに上司はいないみたい。気をつけてね！」');
+}
+function updatePals(dt, crouch) {
+  const hidden = player.inBox || player.atDesk;
+  for (const c of pals) {
+    let spd = 0;
+    if (c.sayT > 0) { c.sayT -= dt; if (c.sayT <= 0 && c.say) { palLayer.remove(c.say); c.say = null; } }
+    const dx = player.x - c.x, dz = player.z - c.z, d = Math.hypot(dx, dz);
+    if (c.kind === 'help') { if (d < 5) c.face += angDiff(Math.atan2(dz, dx), c.face) * Math.min(1, dt * 3); }
+    else {
+      c.cool -= dt;
+      if (c.st === 'talk') {
+        c.t -= dt; c.face += angDiff(Math.atan2(dz, dx), c.face) * Math.min(1, dt * 6);
+        if (c.t <= 0) { c.st = 'wander'; c.cool = 25; c.path = []; c.wait = 1; }
+      } else if (c.st === 'chase') {
+        c.t -= dt; c.repath -= dt;
+        if (hidden || c.t <= 0 || d > 11) { c.st = 'wander'; c.cool = 9; c.path = []; c.wait = 1.5; palSay(c, 'あれ？どこ行った？', 1.6); }
+        else if (d < 1.15) {
+          c.st = 'talk'; c.t = 2.8; player.talkT = 2.8; c.path = [];
+          palSay(c, pick(CHAT_LINES), 2.8); SND.greet(); showToast('同僚につかまった！話が終わるまで動けない…');
+          for (const b of bosses) { if (b.phone > 0) continue; const bd = Math.hypot(b.x - c.x, b.z - c.z);
+            if (bd < 12) { b.lookAt = { x: c.x, z: c.z, t: 2.0 }; b.sus = Math.min(0.9, b.sus + (0.2 + 0.25 * (1 - bd / 12)) * D().gain); } }
+        } else { if (c.repath <= 0) { c.path = navPath(c.x, c.z, player.x, player.z); c.repath = 0.5; } spd = 2.05; }
+      } else {
+        const sees = c.cool <= 0 && graceT <= 0 && !hidden && d < 7 && !(crouch && d > 2.2) && Math.abs(angDiff(Math.atan2(dz, dx), c.face)) < 1.9 && lineOfSight(c.x, c.z, player.x, player.z, crouch);
+        if (sees) { c.st = 'chase'; c.t = 7; c.repath = 0; palSay(c, pick(CALL_LINES), 1.6); }
+        else if (!c.path.length) {
+          c.wait -= dt;
+          if (c.wait <= 0) { for (let tries = 0; tries < 12 && !c.path.length; tries++) { const a = Math.random() * 6.28, r = 3 + Math.random() * 9; c.path = navPath(c.x, c.z, c.x + Math.cos(a) * r, c.z + Math.sin(a) * r); } c.wait = 1 + Math.random() * 3; }
+        } else spd = 1.15;
+      }
+      if (spd && c.path.length) {
+        const [tx, tz] = c.path[0], ex = tx - c.x, ez = tz - c.z, ed = Math.hypot(ex, ez);
+        if (ed < 0.08) c.path.shift();
+        else { const st = Math.min(ed, spd * dt); c.x += ex / ed * st; c.z += ez / ed * st; c.face += angDiff(Math.atan2(ez, ex), c.face) * Math.min(1, dt * 8); }
+      } else spd = 0;
+    }
+    c.p.root.position.set(c.x, 0, c.z); c.p.root.rotation.y = Math.PI / 2 - c.face; animatePerson(c.p, dt, spd, false);
+    c.tag.position.set(c.x, 2.05, c.z); c.tag.visible = state === 'play';
+    if (c.say) c.say.position.set(c.x, 2.45, c.z);
+  }
+}
 function updateItems() {
   if (IS_TOUCH) { $('items').innerHTML = `<div class="row${phones ? '' : ' off'}" id="rPhone">📞 電話 <b style="color:#7fd4ff">${'●'.repeat(phones)}${'○'.repeat(2 - phones)}</b></div>`; return; }
   const K = (pc, tc) => IS_TOUCH ? `<kbd class="w">${tc}</kbd>` : pc;
@@ -2265,10 +2409,12 @@ function updateHud(crouch, ex) {
   $('mission').classList.toggle('alert', meter > 0.6);
   $('mSub').textContent = meter > 0.6 ? '上司に気づかれかけている！' : '上司に見つからずに会社を出る';
   let h = floorGoal().replace('目標：', '');
-  const ns = !player.inBox && !player.atDesk && !ex ? nearSpot() : null, nb = ns && ns.box, nd = ns && ns.desk;
-  if (player.atDesk) h = meter > 0.05 ? '上司が見ている！近くで見られ続けると仕事を振られる' : (IS_TOUCH ? '作業中のふり：遠くからは怪しまれない（「立つ」で席を立つ）' : '作業中のふり：遠くからは怪しまれない（E：席を立つ）');
+  const ns = !player.inBox && !player.atDesk && !ex ? nearSpot() : null, nb = ns && ns.box, nd = ns && ns.desk, nh = ns && ns.help;
+  if (player.talkT > 0) h = '同僚の話につかまっている…（しゃがむ・段ボール・席で避けられる）';
+  else if (player.atDesk) h = meter > 0.05 ? '上司が見ている！近くで見られ続けると仕事を振られる' : (IS_TOUCH ? '作業中のふり：遠くからは怪しまれない（「立つ」で席を立つ）' : '作業中のふり：遠くからは怪しまれない（E：席を立つ）');
   else if (nd) h = IS_TOUCH ? '「座る」ボタンで作業しているふりをする' : 'E：空いている席で作業しているふり';
   else if (player.inBox) h = player.speed > 0.1 ? '段ボールで移動中：視界に入ると怪しまれる' : (IS_TOUCH ? '段ボールの中：止まっていれば見つからない（「出る」で出る）' : '段ボールの中：止まっていれば見つからない（E：出る）');
+  else if (nh) h = IS_TOUCH ? '「頼む」ボタンで同期に上司を引きつけてもらう' : 'E：同期に頼んで近くの上司を電話で引きつけてもらう';
   else if (nb) h = IS_TOUCH ? '「隠れる」ボタンで段ボールに入る' : 'E：段ボールに隠れる';
   else if (ex) h = ex.type === 'elev' && elevWait >= 0 ? 'エレベーターを待っている…' : exLabel(ex);
   else if (meter > 0.05) h = '視線が外れるのを待つ／しゃがんで机に隠れる';
@@ -2276,12 +2422,12 @@ function updateHud(crouch, ex) {
   else if (player.dashing) h = 'ダッシュ中：足音で近くの上司に気づかれる！';
   else if (!IS_TOUCH && !document.pointerLockElement) h = '画面をクリックするとマウスで見回せる';
   $('hintText').textContent = h;
-  const actOn = (ex && ex.type !== 'door') || player.inBox || player.atDesk || nb || nd;
+  const actOn = (ex && ex.type !== 'door') || player.inBox || player.atDesk || nb || nd || nh;
   $('tAct').style.display = actOn ? 'block' : 'none';
-  $('tAct').textContent = player.atDesk ? '立つ' : player.inBox ? '出る' : nb ? '隠れる' : nd ? '座る' : '調べる';
+  $('tAct').textContent = player.atDesk ? '立つ' : player.inBox ? '出る' : nb ? '隠れる' : nd ? '座る' : nh ? '頼む' : '調べる';
   const tg = (id, on, cls = 'on') => { const el = $(id); if (el) el.classList.toggle(cls, on); };
   tg('rCrouch', !!crouch && !player.inBox); tg('rDash', !!player.dashing);
-  if ($('rAct')) { $('rAct').style.display = actOn ? 'flex' : 'none'; $('rActL').textContent = player.atDesk ? '席を立つ' : player.inBox ? '段ボールから出る' : nb ? '段ボールに隠れる' : nd ? '作業しているふり' : '調べる'; }
+  if ($('rAct')) { $('rAct').style.display = actOn ? 'flex' : 'none'; $('rActL').textContent = player.atDesk ? '席を立つ' : player.inBox ? '段ボールから出る' : nb ? '段ボールに隠れる' : nd ? '作業しているふり' : nh ? '同期に頼む' : '調べる'; }
   if ($('rLock')) $('rLock').style.display = document.pointerLockElement ? 'none' : 'block';
   drawMinimap();
 }
@@ -2297,6 +2443,7 @@ function drawMinimap() {
   for (const b of OBST) { if (b.kind === 'chair') continue; mm.fillStyle = b.kind === 'desk' ? '#8a6a4c' : b.kind === 'glass' ? '#7fb8d6' : '#c9c6bf'; mm.fillRect(b.x0 * sc, b.z0 * sc, Math.max(1.5, (b.x1 - b.x0) * sc), Math.max(1.5, (b.z1 - b.z0) * sc)); }
   mm.fillStyle = '#4fc3f7'; for (const d of desks) if (d !== player.atDesk) { mm.beginPath(); mm.arc(d.x * sc, d.z * sc, 4.5, 0, 7); mm.fill(); }
   mm.fillStyle = '#c08a4a'; for (const c of cardboards) if (c !== player.inBox) mm.fillRect(c.x * sc - 4, c.z * sc - 4, 8, 8);
+  for (const c of pals) { if (c.kind === 'help' && c.used) continue; mm.fillStyle = c.kind === 'help' ? '#5be37d' : '#ff8fc8'; mm.beginPath(); mm.arc(c.x * sc, c.z * sc, 4.5, 0, 7); mm.fill(); }
   mm.fillStyle = '#3ad17a'; for (const e of STAGE.exits) mm.fillRect(e.zone[0] * sc, e.zone[1] * sc, (e.zone[2] - e.zone[0]) * sc, (e.zone[3] - e.zone[1]) * sc);
   for (const b of bosses) {
     mm.fillStyle = b.sus > 0.05 ? 'rgba(255,90,95,.35)' : 'rgba(242,201,76,.3)';
@@ -2309,6 +2456,7 @@ function drawMinimap() {
 }
 
 function caught(b, line, delay = 0) {
+  hidePalTags();
   if (player && player.inBox) leaveBox();
   if (player && player.atDesk) leaveDesk(true);
   $('items').style.display = 'none';
@@ -2331,7 +2479,9 @@ function caught(b, line, delay = 0) {
     if ($('bFloor')) { const st = floorStep; $('bFloor').onclick = () => startGame(chara, routeIdx, st); }
   }, delay * 1000 + 5000);
 }
+function hidePalTags() { for (const c of pals) { c.tag.visible = false; if (c.say) c.say.visible = false; } }
 function escape(how, delay = 0) {
+  hidePalTags();
   $('items').style.display = 'none';
   state = 'escape'; cutT = 0; document.exitPointerLock?.();
   SND.stopBgm(); SND.success();
@@ -2339,9 +2489,22 @@ function escape(how, delay = 0) {
     if (state !== 'escape') return;
     const over = gameSec / 60 / ROUTE().floors.length * 1.6;
     const rank = over <= 3 ? ['S', '伝説の定時退社者'] : over <= 5 ? ['A', '華麗なる定時退社'] : over <= 8 ? ['B', 'ほぼ定時'] : ['C', '定時…とは'];
+    const e = { s: calcScore(), t: fmt(gameSec), r: rank[0], n: noticeCount, d: new Date().toISOString().slice(0, 10) };
+    lastScore = e;
+    const pos = continued ? -1 : saveScore(e), list = loadRanks()[rankKey(routeIdx)] || [];
+    const rows = list.map((x, i) => `<tr${x === list[pos] ? ' class="me"' : ''}><td>${i + 1}</td><td>${x.s}点</td><td>${x.r}</td><td>${x.t}</td><td>${x.d.slice(5).replace('-', '/')}</td></tr>`).join('');
     overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">${ROUTE().name}（全${ROUTE().floors.length}フロア）・${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
-      <p>ランク <b style="font-size:28px;color:#f2c94c">${rank[0]}</b>　${rank[1]}</p><p style="opacity:.75">今日はもう、仕事のことは考えない。</p>
+      <p>ランク <b style="font-size:28px;color:#f2c94c">${rank[0]}</b>　${rank[1]}　スコア <b style="font-size:24px;color:#7fd4ff">${e.s}</b>点</p>
+      <p style="opacity:.7;font-size:12px">気づかれかけた回数 ${noticeCount}回${continued ? '・途中のフロアからやり直したので記録には残りません' : pos === 0 ? '・<b style="color:#f2c94c">自己ベスト更新！</b>' : ''}</p>
+      ${rows ? `<table class="rk"><tr><th></th><th>スコア</th><th>ランク</th><th>退社時刻</th><th>日付</th></tr>${rows}</table>` : ''}
+      <div><button class="btn" id="bShare">結果をシェア</button><a class="btn sub" id="bX" target="_blank" rel="noopener">Xにポスト</a></div>
       <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">ステージ・難易度を変える</button>`);
+    $('bX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText(e)) + '&url=' + encodeURIComponent(shareURL());
+    $('bShare').onclick = async () => {
+      const text = shareText(e), url = shareURL();
+      if (navigator.share) { try { await navigator.share({ text, url }); } catch (err) {} }
+      else { try { await navigator.clipboard.writeText(text + ' ' + url); showToast('結果をコピーしました'); } catch (err) { showToast('コピーできませんでした'); } }
+    };
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
   }, delay * 1000 + 1700);
 }
@@ -2408,16 +2571,36 @@ function controlsHTML(compact) {
   return `<div class="ctrlttl">操作方法</div><div class="ctrlgrid">${items.map(([k, n, d, hl]) => `<div${hl ? ' class="hl"' : ''}>${k}${IS_TOUCH ? '' : '　' + n}<span>${d}</span></div>`).join('')}</div>`;
 }
 let selStage = 0;
+// ================== スコア・自己ベスト（この端末に保存）・シェア ==================
+let noticeCount = 0, continued = false, lastScore = null;
+const DIFF_MULT = { beginner: 0.5, easy: 0.75, normal: 1, hard: 1.5, oni: 2 };
+const rankKey = i => `${ROUTES[i].name}|${diffKey}`;
+function loadRanks() { try { return JSON.parse(localStorage.getItem('teiji-rank-v1')) || {}; } catch (e) { return {}; } }
+function bestOf(i) { const l = loadRanks()[rankKey(i)]; return l && l[0]; }
+function calcScore() {
+  const floors = ROUTE().floors.length, sec = gameSec / 6;
+  return Math.max(0, Math.round((DIFF_MULT[diffKey] || 1) * (floors * 1000 + Math.max(0, floors * 150 - sec) * 10 - noticeCount * 80)));
+}
+function saveScore(e) {
+  const all = loadRanks(), k = rankKey(routeIdx), l = all[k] || [];
+  l.push(e); l.sort((a, b) => b.s - a.s); all[k] = l.slice(0, 5);
+  localStorage.setItem('teiji-rank-v1', JSON.stringify(all));
+  return all[k].indexOf(e);
+}
+function shareText(e) { return `定時退社シミュレーターで「${ROUTE().name}」（${D().label}）をクリア！ 退社時刻 ${e.t}・ランク${e.r}・${e.s}点 #定時退社シミュレーター`; }
+const shareURL = () => location.href.split('#')[0].split('?')[0];
 function showSelect() {
   state = 'select'; SND.bgm('title'); SND.setDuck(1); SND.setTension(0);
   const c = CHARACTERS[0];
   const face = c.photo && PHOTOS[c.photo] ? `<img class="face sm" src="${PHOTOS[c.photo]}">` : '';
-  const stageCards = ROUTES.map((r, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${r.floors.map(floorShort).join(' → ')}</div><div class="snm">${r.name}</div></div>`).join('');
+  const card = i => { const r = ROUTES[i], b = bestOf(i); return `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${r.floors.map(floorShort).join(' → ')}</div><div class="snm">${r.name}</div>${b ? `<div class="sbest">ベスト ${b.s}点・${b.r}</div>` : ''}</div>`; };
+  const idx = ROUTES.map((r, i) => i);
+  const stageCards = `<div class="sgrp">1フロアだけ</div><div class="scards">${idx.filter(i => ROUTES[i].single).map(card).join('')}</div><div class="sgrp">フロアをまたぐ退社ルート</div><div class="scards">${idx.filter(i => !ROUTES[i].single).map(card).join('')}</div>`;
   const diffs = Object.entries(DIFFS).map(([k, d]) => `<button class="diff${k === diffKey ? ' sel' : ''}" data-k="${k}">${d.label}</button>`).join('');
   const qs = [['high', '高画質'], ['low', '軽量']].map(([k, l]) => `<button class="qual${k === quality ? ' sel' : ''}" data-q="${k}">${l}</button>`).join('');
   overlay(`<h1>今日の退社ルート</h1>
     <div class="who">${face}<div><div class="nm">${c.name}</div><div class="dp">${c.dept}　足の速さ <b>${stars(c.stars[0])}</b>　気配の消し方 <b>${stars(c.stars[1])}</b></div></div></div>
-    <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div><div class="sdesc" id="sDesc">${ROUTES[selStage].desc}</div>
+    <div class="dlab" style="margin-top:18px">ステージ</div>${stageCards}<div class="sdesc" id="sDesc">${ROUTES[selStage].desc}</div>
     <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
     <div class="diffs"><div class="dlab">画質</div><div class="drow">${qs}</div></div>
     ${controlsHTML(true)}
@@ -2450,7 +2633,7 @@ const SND = (() => {
     master = ctx.createGain(); master.gain.value = muted ? 0 : 0.9;
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
     master.connect(comp); comp.connect(ctx.destination);
-    bgmBus = ctx.createGain(); bgmBus.gain.value = 0.42; bgmBus.connect(master);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = 0.55; bgmBus.connect(master);
     sfxBus = ctx.createGain(); sfxBus.gain.value = 0.8; sfxBus.connect(master);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -2473,31 +2656,74 @@ const SND = (() => {
     const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(fl); fl.connect(g); g.connect(bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
   }
-  // ---- BGM（オリジナルのループ。16ステップ×4小節） ----
+  // ---- BGM（すべてオリジナル。16ステップ×数小節のループ） ----
+  const _ = null, X = (k, s, h) => ({ k, s, h });
   const SONGS = {
-    title: { bpm: 84, root: 57, chords: [[0, 3, 7], [-4, 0, 3], [-2, 2, 5], [-5, -2, 2]],
-      bass: [0, null, null, null, 0, null, 7, null, 0, null, null, null, -2, null, 3, null],
-      lead: [[12, 15, 19, null, 17, null, 15, null, 14, null, 12, null, null, null, 10, null], [12, null, 8, null, 7, null, 8, null, 10, null, null, null, null, null, null, null], [10, 14, 17, null, 15, null, 14, null, 12, null, 10, null, null, null, 9, null], [7, null, 10, null, 12, null, 14, null, 15, null, 14, null, 12, null, null, null]] },
-    stealth: { bpm: 104, root: 45, chords: [[0, 3, 7], [0, 3, 7], [-4, 0, 3], [-2, 1, 5]],
-      bass: [0, null, 0, 0, null, 0, 3, null, 0, null, 0, 0, null, 7, 6, null],
-      lead: [[null, null, null, null, 15, null, null, 14, null, null, 12, null, null, null, null, null], [null, null, null, null, 15, null, null, 17, null, null, 15, null, 14, null, null, null], [null, null, null, null, 11, null, null, 12, null, null, 14, null, null, null, null, null], [null, null, null, null, 13, null, 12, null, 10, null, null, null, null, null, null, null]] },
+    title: { bpm: 84, root: 57, padVol: 0.09, bassType: 'triangle', bassVol: 0.18, bassCut: 900, leadType: 'triangle', leadVol: 0.13,
+      bass: [[0, _, _, _, 0, _, 7, _, 0, _, _, _, -2, _, 3, _]],
+      bars: [
+        { ch: [0, 3, 7], lead: [12, 15, 19, _, 17, _, 15, _, 14, _, 12, _, _, _, 10, _] },
+        { ch: [-4, 0, 3], lead: [12, _, 8, _, 7, _, 8, _, 10, _, _, _, _, _, _, _] },
+        { ch: [-2, 2, 5], tr: -4, lead: [10, 14, 17, _, 15, _, 14, _, 12, _, 10, _, _, _, 9, _] },
+        { ch: [-5, -2, 2], tr: -2, lead: [7, _, 10, _, 12, _, 14, _, 15, _, 14, _, 12, _, _, _] }],
+      drums: { ...X('x.......x.......', '................', 'x...x...x...x...'), kv: 0.1, sv: 0, hv: 0.025 } },
+    // 通常フロア：こっそり進むファンク
+    stealth: { bpm: 108, root: 45, padVol: 0.05, bassType: 'sawtooth', bassVol: 0.15, bassCut: 520, leadType: 'square', leadVol: 0.05, leadLen: 1.6, leadCut: 2600, echo: true,
+      bass: [[0, _, 0, 12, _, 0, 10, _, 0, _, 7, _, 10, _, 12, _]],
+      bars: [
+        { ch: [0, 3, 7, 10], lead: [12, _, _, 15, _, 17, _, _, 19, _, 17, _, 15, _, _, _] },
+        { ch: [0, 3, 7, 10], lead: [12, _, _, 15, _, 17, _, 19, _, 22, _, 19, 17, _, _, _] },
+        { ch: [-4, 0, 3, 7], tr: -4, lead: [15, _, _, 12, _, 8, _, _, 7, _, 8, _, 12, _, _, _] },
+        { ch: [-5, -1, 2, 5], tr: -5, lead: [11, _, _, 14, _, 17, _, _, 16, _, 14, _, 11, _, _, _] },
+        { ch: [0, 3, 7, 10], lead: [24, _, 22, _, 19, _, _, 17, _, 15, _, _, 12, _, _, _] },
+        { ch: [0, 3, 7, 10], lead: [12, _, 15, _, 17, _, 19, _, 22, _, _, 24, _, 22, _, _] },
+        { ch: [-4, 0, 3, 7], tr: -4, lead: [20, _, 19, _, 15, _, _, 12, _, 15, _, _, 19, _, _, _] },
+        { ch: [-5, -1, 2, 5], tr: -5, lead: [16, _, _, _, 14, _, _, _, 11, _, _, _, 8, _, _, _] }],
+      drums: { ...X('x.....x...x.....', '....x.......x...', '..x...x...x...x.'), kv: 0.2, sv: 0.07, hv: 0.045 } },
+    // 役員フロア・ロビー・食堂：ゆったりしたジャズ
+    jazz: { bpm: 96, root: 50, swing: 0.33, padVol: 0.045, padType: 'triangle', padCut: 1400, bassType: 'triangle', bassVol: 0.2, bassCut: 700, bassLen: 3.2, leadType: 'sine', leadVol: 0.11, leadLen: 4, leadA: 0.01, echo: true,
+      bass: [[0, _, _, _, 3, _, _, _, 5, _, _, _, 7, _, _, _], [5, _, _, _, 9, _, _, _, 7, _, _, _, 4, _, _, _], [-2, _, _, _, 2, _, _, _, 5, _, _, _, 4, _, _, _], [7, _, _, _, 6, _, _, _, 4, _, _, _, 1, _, _, _]],
+      bars: [
+        { ch: [0, 3, 7, 10], bp: 0, lead: [15, _, _, _, 14, _, 12, _, _, _, 10, _, 12, _, _, _] },
+        { ch: [3, 5, 9, 12], bp: 1, lead: [17, _, _, 15, _, _, 14, _, 12, _, _, _, _, _, _, _] },
+        { ch: [-2, 2, 5, 9], bp: 2, lead: [14, _, _, _, 10, _, _, 9, _, _, 7, _, _, _, _, _] },
+        { ch: [2, 5, 7, 11], bp: 3, lead: [9, _, 10, _, 13, _, 16, _, 19, _, _, _, 18, _, _, _] }],
+      drums: { ...X('x.......x.......', '....x.......x...', 'x...x.x.x...x.x.'), kv: 0.1, sv: 0.03, hv: 0.035 } },
+    // 地下：低く脈打つ不穏な曲
+    dark: { bpm: 92, root: 40, padVol: 0.06, padType: 'sawtooth', padCut: 500, bassType: 'sawtooth', bassVol: 0.16, bassCut: 380, bassLen: 1.2, leadType: 'triangle', leadVol: 0.1, leadLen: 6, echo: true,
+      bass: [[0, _, 0, _, 0, _, 0, _, 0, _, 0, _, 0, _, 3, _]],
+      bars: [
+        { ch: [0, 3, 7], lead: [24, _, _, _, _, _, _, _, 22, _, _, _, _, _, _, _] },
+        { ch: [0, 3, 7], lead: [_, _, _, _, 19, _, _, _, _, _, _, _, 17, _, _, _] },
+        { ch: [-4, 0, 3], tr: -4, lead: [20, _, _, _, _, _, _, _, 19, _, _, _, _, _, _, _] },
+        { ch: [-2, 2, 5], tr: -2, lead: [_, _, _, _, 17, _, _, _, 14, _, _, _, _, _, _, _] }],
+      drums: { ...X('x.........x.....', '................', '....x.......x...'), kv: 0.22, sv: 0, hv: 0.03 } },
   };
   function schedule() {
     if (!ctx || !mode) return;
-    const S = SONGS[mode], spb = 60 / (S.bpm * (mode === 'stealth' ? 1 + tension * 0.18 : 1)) / 4;
+    const S = SONGS[mode] || SONGS.stealth, spb = 60 / (S.bpm * (mode !== 'title' ? 1 + tension * 0.15 : 1)) / 4;
     while (nextT < ctx.currentTime + 0.15) {
-      const t = nextT, bar = Math.floor(step / 16) % 4, i = step % 16, ch = S.chords[bar], dk = duck;
-      if (i === 0) for (const n of ch) tone(t, mtof(S.root + 12 + n), spb * 16, { type: 'sine', vol: (mode === 'stealth' ? 0.05 : 0.09) * dk, a: 0.4, bus: bgmBus, detune: (Math.random() - .5) * 8 });
-      const b = S.bass[i];
-      if (b !== null) tone(t, mtof(S.root - 12 + b + (bar === 2 ? -4 : bar === 3 ? -2 : 0)), spb * 1.6, { type: mode === 'stealth' ? 'sawtooth' : 'triangle', vol: (mode === 'stealth' ? 0.13 : 0.18) * dk, cutoff: mode === 'stealth' ? 420 + tension * 900 : 900, bus: bgmBus });
-      const l = S.lead[bar][i];
-      if (l !== null) tone(t, mtof(S.root + 12 + l + (mode === 'stealth' ? 0 : 0)), spb * 3, { type: mode === 'stealth' ? 'square' : 'triangle', vol: (mode === 'stealth' ? 0.035 : 0.13) * dk, cutoff: 2400, bus: bgmBus });
-      if (mode === 'stealth') {
-        if (i % 4 === 2) noise(t, 0.04, { vol: 0.05 * dk, f: 7000, bus: bgmBus });
-        if (i % 8 === 0) tone(t, 70, 0.18, { type: 'sine', vol: 0.18 * dk, slide: 0.5, bus: bgmBus });
+      const bar = Math.floor(step / 16) % S.bars.length, i = step % 16, B = S.bars[bar], dk = duck;
+      const t = nextT + (S.swing && i % 4 === 2 ? spb * S.swing : 0);
+      if (i === 0) for (const n of B.ch) tone(t, mtof(S.root + 12 + n), spb * 16, { type: S.padType || 'sine', vol: S.padVol * dk, a: 0.3, bus: bgmBus, detune: (Math.random() - .5) * 8, cutoff: S.padCut || 0 });
+      const bp = S.bass[B.bp || 0][i];
+      if (bp !== null) tone(t, mtof(S.root - 12 + bp + (B.tr || 0)), spb * (S.bassLen || 1.6), { type: S.bassType, vol: S.bassVol * dk, cutoff: (S.bassCut || 600) + tension * 900, bus: bgmBus });
+      const l = B.lead[i];
+      if (l !== null) {
+        const o = { type: S.leadType, vol: S.leadVol * dk, cutoff: S.leadCut || 2400, a: S.leadA || 0.005, bus: bgmBus };
+        tone(t, mtof(S.root + 12 + l), spb * (S.leadLen || 3), o);
+        if (S.echo) tone(t + spb * 3, mtof(S.root + 12 + l), spb * (S.leadLen || 3), { ...o, vol: o.vol * 0.3, cutoff: o.cutoff * 0.6 });
+      }
+      const DR = S.drums;
+      if (DR) {
+        if (DR.k[i] === 'x') tone(t, 78, 0.22, { type: 'sine', vol: DR.kv * dk, slide: 0.45, bus: bgmBus });
+        if (DR.s[i] === 'x' && DR.sv) noise(t, 0.12, { vol: DR.sv * dk, type: 'bandpass', f: 1900, q: 0.9, bus: bgmBus });
+        if (DR.h[i] === 'x') noise(t, 0.035, { vol: DR.hv * dk, f: 7500, bus: bgmBus });
+      }
+      if (mode !== 'title') {
         if (tension > 0.05 && i % 2 === 1) noise(t, 0.03, { vol: 0.06 * tension * dk, f: 9000, bus: bgmBus });
         if (tension > 0.5 && i % 4 === 0) tone(t, mtof(S.root + 24 + (i % 8 ? 1 : 0)), spb * 0.9, { type: 'sawtooth', vol: 0.03 * tension * dk, cutoff: 3000, bus: bgmBus });
-      } else if (i % 4 === 0) noise(t, 0.05, { vol: 0.025 * dk, f: 8000, bus: bgmBus });
+      }
       nextT += spb; step++;
     }
   }
@@ -2514,7 +2740,7 @@ const SND = (() => {
     get muted() { return muted; },
     toggleMute() { muted = !muted; localStorage.setItem('teiji-mute', muted ? '1' : '0'); if (master) master.gain.setTargetAtTime(muted ? 0 : 0.9, now(), 0.05); return muted; },
     setTension(v) { tension = v; },
-    setDuck(v) { duck = v; if (bgmBus) bgmBus.gain.setTargetAtTime(0.42 * v, now(), 0.1); },
+    setDuck(v) { duck = v; if (bgmBus) bgmBus.gain.setTargetAtTime(0.55 * v, now(), 0.1); },
     click() { tone(now(), 1400, 0.05, { type: 'square', vol: 0.05, cutoff: 3000 }); },
     step(kind) { // walk / dash / crouch / box
       const t = now();
@@ -2652,7 +2878,7 @@ window.__validate = () => {
   return out;
 };
 window.__setYaw = v => { yaw = v; camSnap = true; };
-window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, get floorStep() { return floorStep; }, ROUTES, get elevCall() { return elevCall; }, setDiff(k) { diffKey = k; }, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
+window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, get floorStep() { return floorStep; }, ROUTES, get elevCall() { return elevCall; }, get pals() { return pals; }, get score() { return lastScore; }, setDiff(k) { diffKey = k; }, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
 
 buildStage(0);
 showTitle();

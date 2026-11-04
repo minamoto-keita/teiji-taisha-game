@@ -177,6 +177,10 @@
   @media (max-height: 500px) { body.playing #bMute { top: 8px; left: calc(50% + 74px); padding: 5px 10px; } }
   @media (pointer: coarse) { #overlay { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px); padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
     .btn.start { margin: 10px auto 4px; font-size: 18px; padding: 12px 48px; } }
+  #transit { position: fixed; inset: 0; z-index: 9; background: #07080a; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    opacity: 0; pointer-events: none; transition: opacity .35s; color: #ecebe6; text-align: center; }
+  #transit.on { opacity: 1; }
+  #transit .how { font-size: 15px; opacity: .75; } #transit .to { font-size: 30px; font-weight: 900; color: #f2c94c; } #transit .st { font-size: 13px; opacity: .6; letter-spacing: .1em; }
 </style>
 </head>
 <body>
@@ -191,6 +195,7 @@
 <div id="hint" class="hud panel"><div class="chk"></div><span id="hintText">会社の外へ</span></div>
 <div id="dialog" class="hud panel"><div class="name" id="dName"></div><div class="line" id="dLine"></div></div>
 <div id="progress" class="hud panel"><div id="pText">エレベーター待ち…</div><div class="bar"><div class="fill" id="pFill"></div></div></div>
+<div id="transit"><div class="how" id="trHow"></div><div class="to" id="trTo"></div><div class="st" id="trStep"></div></div>
 <div id="touch"><button class="tbtn" id="tSneak">しゃがむ</button><button class="tbtn" id="tAct">調べる</button><button class="tbtn" id="tDash">ダッシュ</button><button class="tbtn" id="tCall">電話</button></div>
 <div id="items" class="hud panel" style="display:none"></div>
 <button id="bPause" style="display:none" aria-label="一時停止">⏸ 一時停止</button>
@@ -1687,6 +1692,30 @@ const STAGES = [
   },
 ];
 let stageIdx = 0;
+// ステージ＝退社ルート。フロアを順に下りていき、最後のフロアの出口で退社成功
+const ROUTES = [
+  { name: '定番の帰り道', floors: ['sales', 'lobby'], desc: '営業フロアを抜けて非常階段かエレベーターで1Fへ。最後はエントランスの正面玄関から外へ。' },
+  { name: '役員フロアから', floors: ['exec', 'sales', 'lobby'], desc: '役員会のあと12Fから脱出。ガラス張りの役員フロア、いつもの営業フロア、エントランスの3フロア。' },
+  { name: '総務から地下へ', floors: ['soumu', 'archive'], desc: '3Fの総務・経理フロアから地下2階の倉庫へ。棚の迷路を抜けて搬出口から帰る。' },
+  { name: '開発部から', floors: ['dev', 'soumu', 'lobby'], desc: 'リリース前夜の開発部から、総務フロアを経由して1Fエントランスへ。' },
+  { name: 'コールセンターから', floors: ['call', 'parking'], desc: '鳴りやまない電話をあとに、地下駐車場の出口スロープを目指す。' },
+  { name: '食堂でひと息ついたら', floors: ['cafe', 'training', 'parking'], desc: '10Fの社員食堂から、研修中の6Fを通って地下駐車場へ。' },
+  { name: '研修のあとで', floors: ['training', 'lobby'], desc: '研修が終わる前にこっそり抜け出し、1Fエントランスから外へ。' },
+  { name: '地下の抜け道', floors: ['dev', 'archive'], desc: '開発部から非常階段で一気に地下2階へ。倉庫の搬出口から帰る裏ルート。' },
+  { name: '倉庫経由', floors: ['call', 'soumu', 'archive'], desc: 'コールセンター、総務フロア、地下倉庫の3フロア。見通しの悪さが増していく。' },
+  { name: '全館縦断', floors: ['exec', 'cafe', 'call', 'lobby'], desc: '最上階の役員フロアから4フロアを下りきる最長ルート。腕に自信がある人向け。' },
+];
+let routeIdx = 0, floorStep = 0;
+const ROUTE = () => ROUTES[routeIdx];
+const floorIndex = id => STAGES.findIndex(s => s.id === id);
+const lastFloor = () => floorStep >= ROUTE().floors.length - 1;
+const floorShort = id => STAGES[floorIndex(id)].floor.replace('本社 ', '');
+const routeLabel = () => `${ROUTE().name}（${STAGE.floor} ${STAGE.name}・フロア ${floorStep + 1}/${ROUTE().floors.length}）`;
+function exLabel(ex) {
+  if (lastFloor()) return ex.label;
+  return ex.type === 'elev' ? 'E：エレベーターで下の階へ（上司と鉢合わせの危険）' : 'E：非常階段で下の階へ';
+}
+function floorGoal() { return lastFloor() ? STAGE.goal : '目標：エレベーター or 非常階段で下の階へ'; }
 let lightsGroup = null;
 
 function buildStage(idx) {
@@ -1820,33 +1849,51 @@ $('tCall').addEventListener('pointerdown', e => { e.preventDefault(); usePhone()
 function lockPointer() { try { const r = view.requestPointerLock?.(); r && r.catch && r.catch(() => {}); } catch (e) {} }
 
 // ================== 進行 ==================
-function startGame(c, sIdx = stageIdx) {
-  chara = c;
-  if (sIdx !== stageIdx || !STAGE) buildStage(sIdx);
+function startGame(c, rIdx = routeIdx, fromStep = 0) {
+  chara = c; routeIdx = rIdx; floorStep = fromStep;
+  const fi = floorIndex(ROUTE().floors[floorStep]);
+  if (fi !== stageIdx || !STAGE) buildStage(fi);
   if (pl) scene.remove(pl.root);
   pl = (c.glb && REAL) ? REAL : makePerson({ ...c, bag: true });
   pl.crouchT = 0; pl.defeated = false; pl.defT = 0; camSnap = true;
   $('vignette').style.boxShadow = 'none'; $('mission').classList.remove('alert');
   scene.add(pl.root);
-  const st = STAGE.start;
-  player = { x: st.x, z: st.z, face: st.yaw === 0 ? Math.PI / 2 : st.yaw === Math.PI / 2 ? 0 : 0, r: 0.3, speed: 0 };
-  player.face = Math.atan2(Math.cos(st.yaw), Math.sin(st.yaw));
-  yaw = st.yaw; pitch = 0.3; gameSec = 0; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null; exitTarget = null;
-  spawnBosses(); spawnCardboards(); spawnDesks(); player.inBox = null; player.atDesk = null; if (pl) pl.sitting = false; player.callT = 0; pl.root.visible = true; pl.phoneT = 0;
-  phones = 2; graceT = 4; noiseRings.forEach(r => scene.remove(r.m)); noiseRings = []; noiseT = 0;
-  (STAGE.coworkers || []).forEach(c => { c.cool = Math.hypot(c.x - player.x, c.z - player.z) < 2.5 ? 25 : 0; c.say.visible = false; c.sayT = 0; });
-  $('items').style.display = 'block'; updateItems();
-  if (elevBoss) { G.remove(elevBoss.root); elevBoss = null; }
-  for (const e of STAGE.elevs) { e.open = 0; e.opening = false; }
+  phones = 2; gameSec = 0;
+  placeOnFloor();
   const g = $('mFace').getContext('2d'); g.clearRect(0, 0, 80, 80);
   if (c.photo && PHOTOS[c.photo]) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0, 80, 80); im.src = PHOTOS[c.photo]; }
   else drawFaceCanvas(g, 80, c);
   $('mWho').textContent = `${c.name} ｜ ${c.dept}`;
-  $('goal').textContent = STAGE.goal;
-  $('dialog').style.display = 'none'; $('progress').style.display = 'none';
+  $('dialog').style.display = 'none';
   hideOverlay(); state = 'play'; SND.bgm('stealth'); SND.setDuck(1); SND.setTension(0);
-  stepDist = 0; heartT = 0; prevMeter = 0; prevCrouch = false;
   if (matchMedia('(pointer: fine)').matches) lockPointer();
+}
+function placeOnFloor() {
+  const st = STAGE.start;
+  player = { x: st.x, z: st.z, face: st.yaw === 0 ? Math.PI / 2 : st.yaw === Math.PI / 2 ? 0 : 0, r: 0.3, speed: 0 };
+  player.face = Math.atan2(Math.cos(st.yaw), Math.sin(st.yaw));
+  yaw = st.yaw; pitch = 0.3; meter = 0; elevWait = -1; elevTarget = null; caughtBy = null; exitTarget = null;
+  spawnBosses(); spawnCardboards(); spawnDesks(); player.inBox = null; player.atDesk = null; if (pl) pl.sitting = false; player.callT = 0; pl.root.visible = true; pl.phoneT = 0;
+  graceT = 4; noiseRings.forEach(r => scene.remove(r.m)); noiseRings = []; noiseT = 0;
+  (STAGE.coworkers || []).forEach(c => { c.cool = Math.hypot(c.x - player.x, c.z - player.z) < 2.5 ? 25 : 0; c.say.visible = false; c.sayT = 0; });
+  $('items').style.display = 'block'; updateItems();
+  if (elevBoss) { G.remove(elevBoss.root); elevBoss = null; }
+  for (const e of STAGE.elevs) { e.open = 0; e.opening = false; }
+  $('goal').textContent = floorGoal(); $('progress').style.display = 'none';
+  stepDist = 0; heartT = 0; prevMeter = 0; prevCrouch = false; camSnap = true;
+}
+// 次のフロアへ（暗転して組み直す）
+function nextFloor(how) {
+  if (player.inBox) leaveBox(); if (player.atDesk) leaveDesk(true);
+  state = 'transit'; elevWait = -1; $('progress').style.display = 'none';
+  const nid = ROUTE().floors[floorStep + 1], nf = STAGES[floorIndex(nid)];
+  $('trHow').textContent = how; $('trTo').textContent = `${nf.floor} ${nf.name}`; $('trStep').textContent = `フロア ${floorStep + 2} / ${ROUTE().floors.length}`;
+  $('transit').classList.add('on'); SND.ding();
+  setTimeout(() => {
+    floorStep++; buildStage(floorIndex(nid));
+    phones = Math.min(2, phones + 1); placeOnFloor(); updateItems();
+    setTimeout(() => { $('transit').classList.remove('on'); if (state === 'transit') state = 'play'; }, 350);
+  }, 1300);
 }
 let stepDist = 0, heartT = 0, prevMeter = 0, prevCrouch = false;
 function drawFaceCanvas(g, s, c) { const t = drawnFaceTexture(c); g.drawImage(t.image, 0, 0, s, s); }
@@ -1857,7 +1904,7 @@ function doAction() {
   if (player.inBox) return leaveBox();
   const ex = exitAt(player.x, player.z);
   if (!ex) { const n = nearSpot(); if (n && n.box) enterBox(n.box); else if (n && n.desk) enterDesk(n.desk); return; }
-  if (ex.type === 'stairs') { exitTarget = ex.target; return escape('非常階段で脱出'); }
+  if (ex.type === 'stairs') { if (!lastFloor()) return nextFloor('非常階段で下の階へ…'); exitTarget = ex.target; return escape('非常階段で脱出'); }
   if (ex.type === 'elev' && elevWait < 0) { elevWait = 0; elevTarget = STAGE.elevs.reduce((a, e) => Math.hypot(e.x - player.x, e.z - player.z) < Math.hypot(a.x - player.x, a.z - player.z) ? e : a); }
 }
 
@@ -1961,8 +2008,9 @@ function update(dt) {
           elevWait = -1; $('progress').style.display = 'none';
           return caught(fake, BOSS_LINES['本部長'][0], 0.9);
         }
-        exitTarget = [ix, iz];
         elevWait = -1; $('progress').style.display = 'none';
+        if (!lastFloor()) return nextFloor('エレベーターで下の階へ…');
+        exitTarget = [ix, iz];
         return escape('エレベーターで脱出', 0.9);
       }
     }
@@ -2125,13 +2173,13 @@ function updateHud(crouch, ex) {
   $('vignette').style.boxShadow = `inset 0 0 ${120 + meter * 120}px rgba(255,40,40,${meter * 0.55})`;
   $('mission').classList.toggle('alert', meter > 0.6);
   $('mSub').textContent = meter > 0.6 ? '上司に気づかれかけている！' : '上司に見つからずに会社を出る';
-  let h = STAGE.goal.replace('目標：', '');
+  let h = floorGoal().replace('目標：', '');
   const ns = !player.inBox && !player.atDesk && !ex ? nearSpot() : null, nb = ns && ns.box, nd = ns && ns.desk;
   if (player.atDesk) h = meter > 0.05 ? '上司が見ている！近くで見られ続けると仕事を振られる' : (IS_TOUCH ? '作業中のふり：遠くからは怪しまれない（「立つ」で席を立つ）' : '作業中のふり：遠くからは怪しまれない（E：席を立つ）');
   else if (nd) h = IS_TOUCH ? '「座る」ボタンで作業しているふりをする' : 'E：空いている席で作業しているふり';
   else if (player.inBox) h = player.speed > 0.1 ? '段ボールで移動中：視界に入ると怪しまれる' : (IS_TOUCH ? '段ボールの中：止まっていれば見つからない（「出る」で出る）' : '段ボールの中：止まっていれば見つからない（E：出る）');
   else if (nb) h = IS_TOUCH ? '「隠れる」ボタンで段ボールに入る' : 'E：段ボールに隠れる';
-  else if (ex) h = ex.type === 'elev' && elevWait >= 0 ? 'エレベーターを待っている…' : ex.label;
+  else if (ex) h = ex.type === 'elev' && elevWait >= 0 ? 'エレベーターを待っている…' : exLabel(ex);
   else if (meter > 0.05) h = '視線が外れるのを待つ／しゃがんで机に隠れる';
   else if (crouch && !player.inBox) h = '机の陰に身を隠している';
   else if (player.dashing) h = 'ダッシュ中：足音で近くの上司に気づかれる！';
@@ -2186,9 +2234,10 @@ function caught(b, line, delay = 0) {
   setTimeout(() => {
     $('dialog').style.display = 'none';
     const [a, bb] = pick(FAIL_TEXTS);
-    overlay(`<h1 class="fail">定時退社 失敗</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}</p><p class="big">${a}</p><p>${bb}</p><p style="opacity:.7">現在時刻 ${fmt(gameSec + 3600)}　残業中</p>
-      <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">ステージ・難易度を変える</button>`);
+    overlay(`<h1 class="fail">定時退社 失敗</h1><p style="opacity:.75">${routeLabel()}・${D().label}</p><p class="big">${a}</p><p>${bb}</p><p style="opacity:.7">現在時刻 ${fmt(gameSec + 3600)}　残業中</p>
+      ${floorStep > 0 ? '<button class="btn" id="bFloor">このフロアからやり直す</button><button class="btn sub" id="bRetry">最初から</button>' : '<button class="btn" id="bRetry">もう一度</button>'}<button class="btn sub" id="bChar">ステージ・難易度を変える</button>`);
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
+    if ($('bFloor')) { const st = floorStep; $('bFloor').onclick = () => startGame(chara, routeIdx, st); }
   }, delay * 1000 + 5000);
 }
 function escape(how, delay = 0) {
@@ -2197,9 +2246,9 @@ function escape(how, delay = 0) {
   SND.stopBgm(); SND.success();
   setTimeout(() => {
     if (state !== 'escape') return;
-    const over = gameSec / 60;
+    const over = gameSec / 60 / ROUTE().floors.length * 1.6;
     const rank = over <= 3 ? ['S', '伝説の定時退社者'] : over <= 5 ? ['A', '華麗なる定時退社'] : over <= 8 ? ['B', 'ほぼ定時'] : ['C', '定時…とは'];
-    overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
+    overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">${ROUTE().name}（全${ROUTE().floors.length}フロア）・${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
       <p>ランク <b style="font-size:28px;color:#f2c94c">${rank[0]}</b>　${rank[1]}</p><p style="opacity:.75">今日はもう、仕事のことは考えない。</p>
       <button class="btn" id="bRetry">もう一度</button><button class="btn sub" id="bChar">ステージ・難易度を変える</button>`);
     $('bRetry').onclick = () => startGame(chara); $('bChar').onclick = showSelect;
@@ -2272,17 +2321,17 @@ function showSelect() {
   state = 'select'; SND.bgm('title'); SND.setDuck(1); SND.setTension(0);
   const c = CHARACTERS[0];
   const face = c.photo && PHOTOS[c.photo] ? `<img class="face sm" src="${PHOTOS[c.photo]}">` : '';
-  const stageCards = STAGES.map((s, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${s.floor}</div><div class="snm">${s.name}</div></div>`).join('');
+  const stageCards = ROUTES.map((r, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${r.floors.map(floorShort).join(' → ')}</div><div class="snm">${r.name}</div></div>`).join('');
   const diffs = Object.entries(DIFFS).map(([k, d]) => `<button class="diff${k === diffKey ? ' sel' : ''}" data-k="${k}">${d.label}</button>`).join('');
   const qs = [['high', '高画質'], ['low', '軽量']].map(([k, l]) => `<button class="qual${k === quality ? ' sel' : ''}" data-q="${k}">${l}</button>`).join('');
   overlay(`<h1>今日の退社ルート</h1>
     <div class="who">${face}<div><div class="nm">${c.name}</div><div class="dp">${c.dept}　足の速さ <b>${stars(c.stars[0])}</b>　気配の消し方 <b>${stars(c.stars[1])}</b></div></div></div>
-    <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div><div class="sdesc" id="sDesc">${STAGES[selStage].desc}</div>
+    <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div><div class="sdesc" id="sDesc">${ROUTES[selStage].desc}</div>
     <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
     <div class="diffs"><div class="dlab">画質</div><div class="drow">${qs}</div></div>
     ${controlsHTML(true)}
     <button class="btn" id="bGo">退社する</button>`, true);
-  document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; $('sDesc').textContent = STAGES[selStage].desc; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
+  document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; $('sDesc').textContent = ROUTES[selStage].desc; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
   document.querySelectorAll('.diff').forEach(el => el.onclick = () => { diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc; });
   document.querySelectorAll('.qual').forEach(el => el.onclick = () => { quality = el.dataset.q; localStorage.setItem('teiji-quality', quality); document.querySelectorAll('.qual').forEach(x => x.classList.toggle('sel', x === el)); onResize(); });
   $('bGo').onclick = () => { if (IS_TOUCH) { try { const r = document.documentElement.requestFullscreen?.(); r && r.then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); } catch (e) {} } $('bGo').textContent = '読み込み中…'; setTimeout(() => startGame(CHARACTERS[0], selStage), 30); };
@@ -2416,7 +2465,7 @@ function pauseGame() {
   if (state !== 'play') return;
   state = 'pause'; pausedAt = performance.now(); SND.pause(); SND.setDuck(0.35); keys[' '] = keys['shift'] = false; dashTouch = false;
   if (document.pointerLockElement) document.exitPointerLock?.();
-  overlay(`<h1>一時停止中</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}　現在 ${fmt(gameSec)}</p>
+  overlay(`<h1>一時停止中</h1><p style="opacity:.75">${routeLabel()}・${D().label}　現在 ${fmt(gameSec)}</p>
     <div class="pmenu"><button class="btn" id="bResume">ゲームに戻る</button>
     <button class="btn sub" id="bRestart">最初からやり直す</button>
     <button class="btn sub" id="bToSel">ステージ・難易度を選び直す</button>
@@ -2512,7 +2561,7 @@ window.__validate = () => {
   return out;
 };
 window.__setYaw = v => { yaw = v; camSnap = true; };
-window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
+window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, get floorStep() { return floorStep; }, ROUTES, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
 
 buildStage(0);
 showTitle();

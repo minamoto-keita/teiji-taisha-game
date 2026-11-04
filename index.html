@@ -92,10 +92,11 @@
   .who { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 14px; text-align: left; }
   .face.sm { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
   .who .nm { font-size: 20px; font-weight: 900; } .who .dp { font-size: 12px; opacity: .85; margin-top: 4px; } .who b { color: #f2c94c; letter-spacing: 1px; }
-  .scards { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
-  .scard { width: 250px; text-align: left; padding: 14px 16px; border-radius: 8px; cursor: pointer; background: #171b21; border: 2px solid rgba(255,255,255,.1); transition: border-color .12s, transform .12s; }
+  .scards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+  .sdesc { margin-top: 8px; font-size: 13px; opacity: .85; min-height: 1.6em; }
+  .scard { text-align: left; padding: 10px 12px; border-radius: 8px; cursor: pointer; background: #171b21; border: 2px solid rgba(255,255,255,.1); transition: border-color .12s, transform .12s; }
   .scard:hover, .scard.sel { border-color: #f2c94c; transform: translateY(-2px); }
-  .scard .sfl { font-size: 11px; color: #f2c94c; letter-spacing: .1em; } .scard .snm { font-size: 19px; font-weight: 900; margin-top: 2px; } .scard .sds { font-size: 12px; opacity: .8; margin-top: 6px; line-height: 1.6; }
+  .scard .sfl { font-size: 11px; color: #f2c94c; letter-spacing: .1em; } .scard .snm { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 900; margin-top: 2px; } .scard .sds { font-size: 12px; opacity: .8; margin-top: 6px; line-height: 1.6; }
   .qual { font: inherit; font-weight: 700; font-size: 13px; padding: 6px 16px; border-radius: 4px; cursor: pointer; background: transparent; color: #ecebe6; border: 1.5px solid rgba(255,255,255,.3); }
   .qual.sel { background: #ecebe6; color: #111; }
   kbd { white-space: nowrap; }
@@ -110,7 +111,7 @@
     .box .big { font-size: 16px; }
     .ctrlgrid { gap: 8px; }
     .ctrlgrid div { padding: 9px 10px; }
-    .scard { width: 100%; }
+    .scards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .who .dp { line-height: 1.7; }
     .diff { padding: 8px 10px; white-space: nowrap; font-size: 14px; } .drow { gap: 6px; }
     #mission { min-width: 0; max-width: calc(100vw - 150px); padding: 8px 10px; gap: 8px; }
@@ -152,9 +153,10 @@
     kbd { padding: 2px 6px; font-size: 12px; }
     .who { margin-top: 6px; } .face.sm { width: 44px; height: 44px; } .who .nm { font-size: 16px; }
     .dlab { font-size: 11px; }
-    .scards { flex-wrap: nowrap; gap: 8px; margin-top: 4px; }
-    .scard { width: auto; flex: 1; padding: 8px 10px; }
-    .scard .snm { font-size: 15px; } .scard .sds { font-size: 11px; line-height: 1.45; margin-top: 3px; }
+    .scards { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 4px; }
+    .scard { padding: 5px 8px; } .scard .sfl { font-size: 10px; } .sdesc { margin-top: 4px; font-size: 11px; }
+    .scard .snm { font-size: 13px; }
+    #ovBox .ctrlrow { display: none; } .who { margin-top: 2px; } .box h1 { font-size: 20px; } .scard .sds { font-size: 11px; line-height: 1.45; margin-top: 3px; }
     .diffs { margin-top: 8px; } .drow { margin-top: 4px; }
     .diff { padding: 6px 12px; font-size: 13px; } .drow { gap: 6px; } .qual { padding: 4px 12px; font-size: 12px; }
     .ddesc { margin-top: 4px; font-size: 12px; }
@@ -232,6 +234,17 @@ const BOSS_LINES = {
   '秘書': ['あ、お疲れ様です。専務がお呼びです。', 'すみません、社長が少しお話があると。'],
   '社長': ['君、ちょっといいかね。', '若い人の意見を聞きたくてね。少し時間あるかな。'],
   '室長': ['ちょうどいい、この資料の数字を確認してほしいんだ。'],
+  '経理部長': ['その経費、今日中に精算してから帰ってね。', 'ちょっと数字が合わないんだけど、一緒に見てくれる？'],
+  '総務課長': ['あ、ちょうどよかった。備品の棚卸し手伝ってくれる？', '防災訓練の資料、今日中にお願いしたくて。'],
+  'PM': ['すみません、仕様がひとつ変わりまして……。', '明日リリースなんですけど、ちょっとだけ確認お願いできます？'],
+  'リーダー': ['あ、レビューお願いしていいですか？500行くらいなんですけど。', '本番でエラー出てるっぽいです。見てもらえます？'],
+  'CTO': ['ちょうどいい、新しいアーキテクチャの話を聞いてくれ。', '少しだけ、1on1しようか。'],
+  '人事部長': ['ちょうどよかった、面談の件で少しいいかな。', '働き方改革のアンケート、今ここで書いてくれる？'],
+  '講師': ['そこの方！せっかくなので研修、最後まで受けていきましょう。', '（目が合った）では、こちらの方に発表してもらいましょう！'],
+  '人事課長': ['あれ、研修の振り返りシート、まだ出てないですよね？', 'ちょっと懇親会の幹事お願いしたくて。'],
+  'SV': ['すみません、入電が溜まってて！1件だけ取ってもらえます？', 'クレームの二次対応、お願いできますか……？'],
+  'センター長': ['今日の応対品質の振り返り、少しだけやろうか。', 'ちょっと、明日のシフトの相談なんだけど。'],
+  '資料室長': ['お、ちょうどいい。この段ボール、上まで運ぶの手伝ってくれ。', '10年分の資料の整理、今日から始めようと思ってね。'],
   '警備員': ['お疲れ様です。……あ、部長が探してましたよ。呼びますね。', '入館証の確認を……あれ、部長がお呼びです。'],
 };
 const FAIL_TEXTS = [
@@ -1122,6 +1135,52 @@ const LOOK = {
   shitsucho: { shirt: '#eef2f6', pants: '#2b2e33', hair: '#262626', style: 'short', jacket: '#40464f', tie: '#2f4f2f' },
   keibi: { shirt: '#c9d8ea', pants: '#1c2436', hair: '#1a1a1a', style: 'short', jacket: '#1f2a44', tie: '#1f2a44', lanyard: false },
 };
+// 追加ステージ用の共通部品
+const STAGE_KIT = {
+  // 東側のエレベーターホール（エレベーター2基＋非常階段）。opens: 部屋との間の通り口 [[z0,z1],...]
+  eastHall(W, D, H, OW, opens, fl) {
+    floorRect(OW, 0, W, D, MAT.tiled(TX.stone, (W - OW) / 1.2, D / 1.2, { roughness: 0.32 }));
+    ceilingRect(OW, 0, W, D, H, { panels: false, down: true });
+    const sc = D - 3.75;
+    wallX(OW, W + 0.3, -0.3, 0, H, MAT.paint2); wallX(OW, W + 0.3, D, D + 0.3, H, MAT.paint2);
+    wallZ(0, D, W, W + 0.3, H, MAT.paint2, [{ a: 3.45, b: 4.55, top: 2.25 }, { a: 6.45, b: 7.55, top: 2.25 }, { a: sc - 0.75, b: sc + 0.75, top: 2.15 }]);
+    wallZ(0, D, OW, OW + 0.3, H, MAT.paint, opens.map(([a, b]) => ({ a, b, top: 2.25, pass: true })));
+    sign(['エレベーターホール'], 2.2, 0.36, OW + 0.32, 2.35, (opens[0][0] + opens[0][1]) / 2, Math.PI / 2, '#2b3036', '#ffffff', 'bold 60px sans-serif');
+    sign(['非常口'], 0.9, 0.3, W - 0.02, 2.35, sc, -Math.PI / 2, '#1e8a4a', '#ffffff', 'bold 80px sans-serif');
+    sign([fl], 0.45, 0.4, W - 0.02, 1.6, 5.5, -Math.PI / 2, '#22262b', '#ffcf6a', 'bold 140px sans-serif');
+    KIT.part('sDoor', B_(0.06, 2.1, 1.5), M('#6f747a', { metalness: .4, roughness: .45 }), null, W - 0.03, 1.05, sc);
+    KIT.part('sBar', B_(0.05, 0.05, 1.1), MAT.chrome, null, W - 0.08, 1.0, sc);
+    plant(W - 0.8, D - 0.8); plant(OW + 0.9, 0.9);
+    return {
+      elevs: [elevator(W - 0.02, 4, -Math.PI / 2, H), elevator(W - 0.02, 7, -Math.PI / 2, H)],
+      exits: [{ type: 'elev', zone: [W - 1.6, 2.6, W, 8.4], label: 'E：エレベーターを呼ぶ（上司と鉢合わせの危険）' }, { type: 'stairs', zone: [W - 1.6, sc - 1.15, W, sc + 1.15], label: 'E：非常階段で帰る', target: [W + 0.8, sc] }],
+    };
+  },
+  rack(x, z, n) {
+    slab(x - 0.3, z - 1.5, x + 0.3, z + 1.5, 0, 2.1, MAT.black);
+    for (let i = 0; i < 14; i++) KIT.part('rackLed', B_(0.02, 0.02, 0.02), MAT.downlight, null, x + 0.31, 0.3 + i * 0.13, z - 1.2 + (i % 5) * 0.6, 0, 0, 0, 1, 1, 1, false);
+  },
+  vending(x, z) {
+    box(x - 0.5, z - 0.35, x + 0.5, z + 0.35, 1.85, 'tall');
+    KIT.part('vend', RB(1.0, 1.85, 0.7, 0.03), STAGE_KIT._vm || (STAGE_KIT._vm = M('#c0392b', { roughness: 0.4 })), null, x, 0.925, z);
+    KIT.part('vendWin', B_(0.8, 0.9, 0.02), MAT.lightPanel, null, x, 1.25, z - 0.36, 0, 0, 0, 1, 1, 1, false);
+  },
+  car(x, z, c) {
+    const cols = STAGE_KIT._cars || (STAGE_KIT._cars = ['#e9e9e6', '#1d1f24', '#8a8f96', '#24365a', '#7a1f24', '#c8c2b4'].map(k => M(k, { roughness: 0.3, metalness: 0.5 })));
+    box(x - 0.9, z - 2.15, x + 0.9, z + 2.15, 1.45, 'desk');
+    const B = base(x, z);
+    KIT.part('carBody', RB(1.8, 0.7, 4.3, 0.15), cols[c % cols.length], B, 0, 0.6, 0);
+    KIT.part('carCab', RB(1.6, 0.55, 2.3, 0.18), STAGE_KIT._cg || (STAGE_KIT._cg = M('#1a2028', { roughness: 0.15, metalness: 0.6 })), B, 0, 1.18, 0.2);
+    for (const sx of [-0.82, 0.82]) for (const sz of [-1.35, 1.35]) KIT.part('wheel', CY(0.33, 0.33, 0.24, 16), MAT.black, B, sx, 0.33, sz, 0, 0, Math.PI / 2);
+  },
+  shelf(x0, z0, x1, z1) {
+    box(x0, z0, x1, z1, 2.3, 'tall');
+    slab(x0, z0, x1, z1, 0, 2.3, M('#7d8288', { metalness: 0.5, roughness: 0.5 }));
+    for (const y of [0.45, 1.05, 1.65]) KIT.part('bnd', B_(1, 0.42, 0.04), MAT.binders, null, (x0 + x1) / 2, y + 0.22, z0 - 0.02, 0, 0, 0, x1 - x0 - 0.1, 1, 1, false);
+    for (const y of [0.45, 1.05, 1.65]) KIT.part('bnd', B_(1, 0.42, 0.04), MAT.binders, null, (x0 + x1) / 2, y + 0.22, z1 + 0.02, 0, 0, 0, x1 - x0 - 0.1, 1, 1, false);
+  },
+  crate(x, z) { KIT.part('crate', B_(0.8, 0.8, 0.7), cardboardMat(), null, x, 0.4, z, 0, (x * 7 + z * 3) % 0.5); },
+};
 const STAGES = [
   {
     id: 'sales', floor: '本社 8F', name: '営業フロア', W: 40, D: 26, H: 2.7,
@@ -1319,6 +1378,310 @@ const STAGES = [
         cardboard: [[10.5, 4.2, 0.2], [12.0, 9.8, 0], [20.5, 18.5, 0.3], [26.8, 21.0, 0], [10.5, 21.0, 0]],
         sun: { pos: [10, 9, 40], target: [17, 0, 12], color: '#ffb67a', intensity: 1.2 }, hemi: 0.45, exposure: 0.72, pointI: 3.2,
         points: [[6, 5], [17, 5], [28, 5], [6, 16], [17, 18], [28, 18], [17, 24]],
+      };
+    },
+  },
+  // ======== 追加ステージ（共通の部品は STAGE_KIT） ========
+  {
+    id: 'soumu', floor: '本社 3F', name: '総務・経理フロア', W: 36, D: 24, H: 2.7,
+    desc: '書類棚とロッカーが並ぶ静かなフロア。棚の陰をつたって、奥のエレベーターホールへ。',
+    goal: '目標：エレベーター or 非常階段',
+    bosses: [
+      { name: '課長', look: 'kacho', speed: 1.0, path: [[1.6, 7.8, 2.0], [17.6, 7.8, 2.0]] },
+      { name: '係長', look: 'kakaricho', speed: 1.1, path: [[9.6, 1.8, 1.5], [9.6, 14.2, 1.5]] },
+      { name: '経理部長', look: 'bucho', speed: 0, path: [[23.25, 12.6, 9999]], sweep: { center: Math.PI, amp: 1.1, speed: 0.35 }, pose: 'sit' },
+      { name: '総務課長', look: 'shitsucho', speed: 0.95, path: [[11, 18.5, 2.0], [24.5, 18.5, 2.0], [24.5, 14.4, 1.5]] },
+      { name: '主任', look: 'shunin', hardOnly: true, speed: 1.2, path: [[1.6, 14.3, 1.2], [17.5, 14.3, 1.2]] },
+    ],
+    locName: (x, z) => x > 26 ? 'エレベーターホール' : z > 16 ? '書庫・コピーコーナー' : '総務・経理フロア',
+    build() {
+      const W = 36, D = 24, H = 2.7, OW = 26, seats = [];
+      floorRect(0, 0, OW, D, MAT.carpet(OW, D));
+      ceilingRect(0, 0, OW, D, H, { panels: true });
+      windowWallNorth(0, OW, 0, H);
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      const hall = STAGE_KIT.eastHall(W, D, H, OW, [[10, 13]], '3F');
+      island(3, 4, 3, seats); island(12, 4, 3, seats); island(3, 10, 3, seats); island(12, 10, 3, seats);
+      // 部長席（島を見渡す）
+      box(22.2, 11.9, 23.0, 13.3, 0.74, 'desk'); desk(22.6, 12.6, Math.PI / 2); chair(23.25, 12.6, -Math.PI / 2, MAT.fabBlack);
+      // 書庫の仕切り（背の高いロッカー列）
+      lockers(1.5, 15.5, 10, 16.1, 1.8); lockers(19.5, 2.5, 20.1, 9, 1.8); lockers(13, 20.5, 13.6, 24, 1.9);
+      bookshelf(0, 17, 0.45, 23, 1.9); bookshelf(16, 23.4, 25.5, 24, 1.9);
+      copier(6, 23.2, Math.PI); box(5.45, 22.85, 6.55, 23.55, 1.1, 'tall');
+      waterServer(25.4, 16.5); box(25.2, 16.3, 25.6, 16.7, 1.3, 'tall');
+      table(17, 19.6, 21, 21, MAT.white, 0.9);
+      for (const [x, z] of [[0.9, 1.0], [25.2, 1.0], [11.0, 23.2]]) plant(x, z);
+      poster(['経費精算は', '月末までに'], 1.2, 0.8, 0.02, 1.6, 12, Math.PI / 2);
+      wallClock(OW - 0.02, 2.2, 5, -Math.PI / 2);
+      return {
+        seats, sitters: [1, 6, 9, 13, 16, 20], ...hall,
+        start: { x: 2.2, z: 21.5, yaw: Math.PI / 2 },
+        cardboard: [[8.5, 13.9, 0], [18.6, 11, 0.2], [21.2, 4.5, 0], [3.5, 19.0, 0.3], [30.5, 15.0, 0]],
+        sun: { pos: [10, 8, -14], target: [14, 0, 12], color: '#ffb070', intensity: 2.2 }, hemi: 0.75,
+        points: [[6, 6], [6, 13], [16, 6], [16, 13], [6, 20], [18, 20], [31, 6], [31, 18]],
+      };
+    },
+  },
+  {
+    id: 'dev', floor: '本社 5F', name: '開発部', W: 38, D: 26, H: 2.8,
+    desc: 'モニターがずらりと並ぶエンジニアの島。サーバールームのガラス越しの視線に注意。',
+    goal: '目標：エレベーター or 非常階段',
+    bosses: [
+      { name: 'PM', look: 'shunin', speed: 1.15, path: [[1.4, 6.3, 1.5], [25.5, 6.3, 1.5]] },
+      { name: 'リーダー', look: 'kakaricho', speed: 1.05, path: [[14.5, 1.6, 1.8], [14.5, 17.2, 1.8]] },
+      { name: '部長', look: 'bucho', speed: 0.95, path: [[3, 17.4, 2.0], [26, 17.4, 2.0]] },
+      { name: 'CTO', look: 'shitsucho', speed: 0, path: [[20.5, 24.2, 9999]], sweep: { center: -Math.PI / 2, amp: 1.0, speed: 0.4 } },
+      { name: '主任', look: 'shunin', hardOnly: true, speed: 1.2, path: [[1.4, 11, 1.2], [25.5, 11, 1.2]] },
+    ],
+    locName: (x, z) => x > 28 ? 'エレベーターホール' : z > 19.5 && x < 12 ? 'サーバールーム' : z > 19.5 ? 'リフレッシュスペース' : '開発部',
+    build() {
+      const W = 38, D = 26, H = 2.8, OW = 28, seats = [];
+      floorRect(0, 0, OW, D, MAT.carpet(OW, D)); floorRect(0, 0, OW, D, M('#2c3b4d', { transparent: true, opacity: 0.3, depthWrite: false }), 0.002);
+      ceilingRect(0, 0, OW, D, H, { panels: true });
+      windowWallNorth(0, OW, 0, H, { blinds: 0.6 });
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      const hall = STAGE_KIT.eastHall(W, D, H, OW, [[15, 18.5]], '5F');
+      // 長机の列（北向きに座る）×2ブロック×3列
+      for (const [x0, x1] of [[3, 13], [16, 26]]) for (const z of [3.6, 8.4, 13.2]) {
+        table(x0, z, x1, z + 0.8, MAT.white, 0.73);
+        for (let x = x0 + 0.7; x < x1; x += 1.6) {
+          monitor(base(x, z + 0.4, 0), 0, -0.15, 0, pick(MAT.screens)); KIT.part('kb', B_(0.44, 0.02, 0.14), MAT.keyboard, base(x, z + 0.4, 0), 0, 0.745, 0.15);
+          chair(x, z + 1.2, Math.PI, MAT.fabBlack); box(x - .27, z + 0.93, x + .27, z + 1.47, .9, 'chair'); seats.push({ x, z: z + 1.2, face: -Math.PI / 2 });
+        }
+      }
+      // サーバールーム（ガラス張り）
+      glassWallX(0, 11, 19.6, H, [{ a: 9.2, b: 10.6, top: 2.2 }]); wallZ(19.6, D, 11, 11.15, H, MAT.paint);
+      for (const x of [2, 3.4, 4.8, 6.2]) { box(x - 0.3, 21.5, x + 0.3, 24.5, 2.1, 'tall'); STAGE_KIT.rack(x, 23, 3); }
+      // リフレッシュスペース
+      sofa(14, 24.6, 18, 25.5, MAT.fabOrange, 'n'); table(14.5, 22.4, 17.5, 23.2, MAT.lightWood, 0.42);
+      STAGE_KIT.vending(24.5, 25.4); STAGE_KIT.vending(25.6, 25.4);
+      for (const [x, z] of [[12.2, 20.2], [27.2, 20.2], [0.9, 1.0]]) plant(x, z);
+      whiteboard(14.2, 20.4, 16.6, 20.6);
+      poster(['Ship it.', '— 定時までに —'], 1.4, 0.8, 0.02, 1.6, 11, Math.PI / 2, '#101418', '#7fd4ff');
+      return {
+        seats, sitters: [0, 3, 7, 10, 14, 19, 23, 27, 31], ...hall,
+        start: { x: 1.3, z: 14.5, yaw: Math.PI / 2 },
+        cardboard: [[1.4, 2.0, 0], [14.5, 19.0, 0.3], [26.8, 9.5, 0], [8.0, 22.0, 0], [33.5, 14.5, 0.2]],
+        sun: { pos: [10, 8, -14], target: [14, 0, 12], color: '#ffa860', intensity: 1.9 }, hemi: 0.7,
+        points: [[7, 6], [7, 15], [20, 6], [20, 15], [6, 22], [19, 22], [33, 6], [33, 20]],
+      };
+    },
+  },
+  {
+    id: 'call', floor: '本社 7F', name: 'コールセンター', W: 38, D: 26, H: 2.7,
+    desc: 'ブースがぎっしり並ぶ電話の海。立つと仕切りの上から丸見え。SVの巡回をかわせ。',
+    goal: '目標：北側のエレベーター or 非常階段',
+    bosses: [
+      { name: 'SV', look: 'shunin', speed: 1.1, path: [[1, 5.5, 1.5], [23.2, 5.5, 1.0], [23.2, 15.5, 1.0], [1, 15.5, 1.5]] },
+      { name: 'センター長', look: 'bucho', speed: 0, path: [[26.2, 13, 9999]], sweep: { center: Math.PI, amp: 1.0, speed: 0.3 }, pose: 'sit' },
+      { name: '係長', look: 'kakaricho', speed: 1.0, path: [[1, 21.5, 2.0], [26.5, 21.5, 2.0]] },
+      { name: 'SV', look: 'kacho', speed: 1.0, path: [[1, 10.5, 1.5], [21.5, 10.5, 1.5]] },
+      { name: '主任', look: 'shunin', hardOnly: true, speed: 1.2, path: [[25, 1.4, 1.2], [25, 9, 1.2]] },
+    ],
+    locName: (x, z) => x > 28 ? 'エレベーターホール' : 'コールセンター',
+    build() {
+      const W = 38, D = 26, H = 2.7, OW = 28, seats = [];
+      floorRect(0, 0, OW, D, MAT.carpet(OW, D)); floorRect(0, 0, OW, D, M('#5a3d2c', { transparent: true, opacity: 0.22, depthWrite: false }), 0.002);
+      ceilingRect(0, 0, OW, D, H, { panels: true });
+      windowWallNorth(0, OW, 0, H, { blinds: 0.7 });
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      const hall = STAGE_KIT.eastHall(W, D, H, OW, [[2.6, 6.2]], '7F');
+      const part = M('#5d6f86', { roughness: 0.95 });
+      for (const z of [3, 8, 13, 18]) {
+        box(2, z, 22, z + 0.75, 1.25, 'desk'); slab(2, z, 22, z + 0.75, 0.70, 0.74, MAT.lightWood);
+        slab(2, z + 0.34, 22, z + 0.41, 0.74, 1.25, part);
+        for (let x = 2.6; x < 22; x += 1.6) {
+          slab(x + 0.75, z, x + 0.81, z + 0.34, 0.74, 1.15, part);
+          monitor(base(x, z + 0.2, Math.PI), 0, -0.05, 0, pick(MAT.screens));
+          chair(x, z - 0.4, Math.PI, MAT.fabNavy); box(x - .27, z - 0.67, x + .27, z - 0.13, .9, 'chair'); seats.push({ x, z: z - 0.4, face: Math.PI / 2 });
+          chair(x, z + 1.15, 0, MAT.fabNavy); box(x - .27, z + 0.88, x + .27, z + 1.42, .9, 'chair'); seats.push({ x, z: z + 1.15, face: -Math.PI / 2 });
+        }
+      }
+      // センター長席（フロア全体を見渡す）
+      box(24.4, 11.6, 25.6, 14.4, 0.74, 'desk'); desk(25, 13, Math.PI / 2, { w: 2.8, d: 1.2 }); chair(26.2, 13, -Math.PI / 2, MAT.leather, MAT.leather);
+      sign(['本日の応対件数  1,284'], 3.2, 0.5, 12, 2.25, D - 0.02, Math.PI, '#101418', '#ffcf6a', 'bold 56px sans-serif');
+      whiteboard(24.2, 22.6, 24.4, 25.6);
+      for (const [x, z] of [[27.2, 1.0], [27.2, 25.0], [0.9, 1.0]]) plant(x, z);
+      return {
+        seats, sitters: [0, 3, 4, 9, 13, 16, 22, 27, 30, 35, 38, 43, 47, 52, 55, 60, 64, 69, 73, 78], ...hall,
+        start: { x: 1.2, z: 24.6, yaw: Math.PI / 2 },
+        cardboard: [[1.0, 12.8, 0], [23.0, 19.5, 0.2], [12.5, 23.2, 0], [26.6, 7.5, 0], [8.5, 15.4, 0.3]],
+        sun: { pos: [10, 8, -14], target: [14, 0, 12], color: '#ffb070', intensity: 2.0 }, hemi: 0.72,
+        points: [[6, 5], [6, 15], [17, 5], [17, 15], [8, 22], [20, 22], [33, 6], [33, 19]],
+      };
+    },
+  },
+  {
+    id: 'cafe', floor: '本社 10F', name: '社員食堂', W: 38, D: 26, H: 3.0,
+    desc: '夕方の食堂は残業前の腹ごしらえ中。テーブルの陰にしゃがみながら進もう。',
+    goal: '目標：エレベーター or 非常階段',
+    bosses: [
+      { name: '部長', look: 'bucho', speed: 0.95, path: [[1.6, 7.0, 1.5], [22.6, 7.0, 1.5], [22.6, 17.8, 1.5], [1.6, 17.8, 1.5]] },
+      { name: '人事部長', look: 'senmu', speed: 1.0, path: [[25, 2, 2.0], [25, 19.5, 2.0]] },
+      { name: '課長', look: 'kacho', speed: 0, path: [[13.4, 10.3, 9999]], sweep: { center: -Math.PI / 2, amp: 1.2, speed: 0.45 }, pose: 'sit' },
+      { name: '係長', look: 'kakaricho', speed: 0, path: [[14, 20.4, 9999]], sweep: { center: -Math.PI / 2, amp: 1.3, speed: 0.5 } },
+      { name: '主任', look: 'shunin', hardOnly: true, speed: 1.2, path: [[1.6, 12, 1.2], [22.6, 12, 1.2]] },
+    ],
+    locName: (x, z) => x > 28 ? 'エレベーターホール' : z > 20.5 ? '配膳カウンター' : '社員食堂',
+    build() {
+      const W = 38, D = 26, H = 3.0, OW = 28, seats = [];
+      floorRect(0, 0, OW, D, MAT.tiled(TX.lightWood, OW / 2.5, D / 0.6, { roughness: 0.45 }));
+      ceilingRect(0, 0, OW, D, H, { panels: false, down: true });
+      windowWallNorth(0, OW, 0, H, { blinds: 0.15, top: 2.6 });
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      const hall = STAGE_KIT.eastHall(W, D, H, OW, [[9, 12]], '10F');
+      for (const x of [3, 8, 13, 18]) for (const z of [4, 9, 14]) {
+        table(x, z, x + 1.6, z + 0.9, MAT.white, 0.72);
+        for (const cx of [x + 0.4, x + 1.2]) {
+          chair(cx, z - 0.4, 0, MAT.fabOrange); box(cx - .27, z - 0.67, cx + .27, z - 0.13, .9, 'chair'); seats.push({ x: cx, z: z - 0.4, face: Math.PI / 2 });
+          chair(cx, z + 1.3, Math.PI, MAT.fabOrange); box(cx - .27, z + 1.03, cx + .27, z + 1.57, .9, 'chair'); seats.push({ x: cx, z: z + 1.3, face: -Math.PI / 2 });
+        }
+        KIT.part('tray', B_(0.4, 0.02, 0.3), MAT.plastic, null, x + 0.4, 0.73, z + 0.3); KIT.part('bowl', CY(0.08, 0.05, 0.07, 12), MAT.white, null, x + 1.2, 0.76, z + 0.6);
+      }
+      // 配膳カウンター
+      box(3, 21.6, 22, 22.6, 1.05, 'desk'); slab(3, 21.6, 22, 22.6, 0, 1.0, M('#8a6a4c')); slab(2.95, 21.55, 22.05, 22.65, 1.0, 1.05, MAT.marbleTop);
+      slab(3, 25.4, 22, 26, 0, 2.2, MAT.steel); box(3, 25.4, 22, 26, 2.2, 'tall');
+      sign(['本日の定食　生姜焼き  ¥520'], 3.4, 0.5, 12.5, 2.4, D - 0.62, Math.PI, '#2b2620', '#ffe2a8', 'bold 50px sans-serif');
+      for (const x of [23.6, 24.7, 25.8]) STAGE_KIT.vending(x, 25.4);
+      column(10.8, 19.2, 0.8, H); column(20.8, 19.2, 0.8, H);
+      for (const [x, z] of [[0.9, 1.0], [27.2, 1.0], [0.9, 24.8]]) plant(x, z);
+      poster(['食べ終わった食器は', '返却口へ'], 1.2, 0.8, 0.02, 1.6, 15, Math.PI / 2);
+      return {
+        seats, sitters: [1, 4, 11, 14, 18, 24, 26, 33, 38, 43], ...hall,
+        start: { x: 1.4, z: 23.4, yaw: Math.PI / 2 },
+        cardboard: [[1.5, 3.0, 0], [8.0, 19.5, 0.2], [20.8, 3.0, 0], [26.8, 22.5, 0], [6.3, 12.0, 0.3]],
+        sun: { pos: [10, 9, -14], target: [14, 0, 12], color: '#ffa860', intensity: 2.4 }, hemi: 0.8,
+        points: [[6, 6], [6, 16], [16, 6], [16, 16], [12, 23], [33, 6], [33, 20]],
+      };
+    },
+  },
+  {
+    id: 'training', floor: '本社 6F', name: '研修センター', W: 38, D: 24, H: 2.8,
+    desc: '新人研修の真っ最中。講師の目を盗んで教室を抜け、大会議室と廊下を通ってエレベーターへ。',
+    goal: '目標：廊下の先のエレベーター or 非常階段',
+    bosses: [
+      { name: '講師', look: 'jomu', speed: 0, path: [[1.6, 8.5, 9999]], sweep: { center: 0, amp: 0.95, speed: 0.4 } },
+      { name: '部長', look: 'bucho', speed: 0.95, path: [[15.8, 3.6, 1.5], [26.6, 3.6, 1.5], [26.6, 13.8, 1.5], [15.8, 13.8, 1.5]] },
+      { name: '人事課長', look: 'kacho', speed: 1.05, path: [[1.5, 21, 2.0], [26.5, 21, 2.0]] },
+      { name: '係長', look: 'kakaricho', hardOnly: true, speed: 1.1, path: [[6.1, 1.5, 1.2], [6.1, 16.6, 1.2]] },
+    ],
+    locName: (x, z) => x > 28 ? 'エレベーターホール' : z > 18.15 ? '廊下' : x < 14 ? '研修室' : '大会議室',
+    build() {
+      const W = 38, D = 24, H = 2.8, OW = 28, seats = [];
+      floorRect(0, 0, OW, 18, MAT.carpet(OW, 18)); floorRect(0, 18, OW, D, MAT.tiled(TX.stone, OW / 1.2, 6 / 1.2, { roughness: 0.35 }));
+      ceilingRect(0, 0, OW, D, H, { panels: true });
+      windowWallNorth(0, OW, 0, H, { blinds: 0.5 });
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      const hall = STAGE_KIT.eastHall(W, D, H, OW, [[19.2, 22.8]], '6F');
+      wallX(0, OW, 18, 18.15, H, MAT.paint, [{ a: 10, b: 11.6, top: 2.2, pass: true }, { a: 22, b: 23.6, top: 2.2, pass: true }]);
+      wallZ(0, 18, 14, 14.15, H, MAT.paint, [{ a: 8, b: 9.6, top: 2.2, pass: true }]);
+      sign(['研修室 A'], 0.8, 0.22, 10.8, 2.0, 18.17, 0, '#2b3036', '#ffffff', 'bold 80px sans-serif');
+      sign(['大会議室'], 0.8, 0.22, 22.8, 2.0, 18.17, 0, '#2b3036', '#ffffff', 'bold 80px sans-serif');
+      // 研修室：講師は西の前方、机は前を向く
+      whiteboard(0.4, 6.5, 0.5, 10.5);
+      for (const x0 of [4, 7, 10]) for (const z0 of [2, 7, 12]) {
+        table(x0, z0, x0 + 0.6, z0 + 3.2, MAT.white, 0.72);
+        for (const dz of [0.8, 2.4]) { chair(x0 + 1.0, z0 + dz, -Math.PI / 2, MAT.fabNavy); box(x0 + 0.73, z0 + dz - .27, x0 + 1.27, z0 + dz + .27, .9, 'chair'); seats.push({ x: x0 + 1.0, z: z0 + dz, face: Math.PI }); }
+      }
+      // 大会議室：長テーブル
+      table(17, 6, 25, 11, MAT.wood, 0.74);
+      for (let x = 17.6; x < 25; x += 1.2) {
+        chair(x, 5.6, 0, MAT.leather, MAT.leather); box(x - .27, 5.33, x + .27, 5.87, .9, 'chair'); seats.push({ x, z: 5.6, face: Math.PI / 2 });
+        chair(x, 11.4, Math.PI, MAT.leather, MAT.leather); box(x - .27, 11.13, x + .27, 11.67, .9, 'chair'); seats.push({ x, z: 11.4, face: -Math.PI / 2 });
+      }
+      KIT.part('tv', RB(2.2, 1.25, 0.06, 0.01), MAT.black, null, 27.9, 1.5, 8.5, 0, -Math.PI / 2);
+      for (const [x, z] of [[0.9, 23.2], [27.2, 23.2], [13.2, 17.2], [27.2, 1.0]]) plant(x, z, 0.9);
+      poster(['報・連・相'], 1.2, 0.6, 0.02, 2.0, 3.5, Math.PI / 2);
+      bookshelf(2, 23.4, 9, 24, 1.9);
+      return {
+        seats, sitters: [0, 3, 5, 6, 9, 12, 14, 17, 19, 22, 25], ...hall,
+        start: { x: 12.6, z: 1.6, yaw: -Math.PI / 2 },
+        cardboard: [[12.6, 13.0, 0], [15.4, 16.6, 0], [3.0, 19.4, 0.3], [16.0, 22.4, 0], [26.6, 16.8, 0.2]],
+        sun: { pos: [10, 8, -14], target: [14, 0, 10], color: '#ffb070', intensity: 2.1 }, hemi: 0.75,
+        points: [[5, 5], [5, 13], [11, 9], [20, 4], [20, 14], [8, 21], [20, 21], [33, 6], [33, 19]],
+      };
+    },
+  },
+  {
+    id: 'parking', floor: '本社 B1', name: '地下駐車場', W: 40, D: 28, H: 3.0,
+    desc: '薄暗い地下駐車場。車の陰にしゃがんで警備員をやり過ごし、出口スロープへ。',
+    goal: '目標：東の出口スロープから外へ',
+    bosses: [
+      { name: '警備員', look: 'keibi', speed: 0.9, path: [[2.5, 9.2, 2.0], [37.5, 9.2, 2.0]] },
+      { name: '社長', look: 'shacho', speed: 0.85, path: [[6, 23.4, 2.5], [35, 23.4, 2.5]] },
+      { name: '次長', look: 'jicho', speed: 0, path: [[22.5, 13.0, 9999]], sweep: { center: -Math.PI / 2, amp: 1.3, speed: 0.45 }, pose: 'smoke' },
+      { name: '部長', look: 'bucho', speed: 1.0, path: [[37.6, 3, 1.5], [37.6, 19.5, 1.5]] },
+      { name: '警備員', look: 'keibi', hardOnly: true, speed: 0, path: [[36.2, 21.5, 9999]], sweep: { center: Math.PI, amp: 0.9, speed: 0.5 } },
+    ],
+    locName: (x, z) => x > 36 && z > 20 ? '出口スロープ' : 'B1 地下駐車場',
+    build() {
+      const W = 40, D = 28, H = 3.0, seats = [];
+      floorRect(0, 0, W, D, M('#6d6e70', { roughness: 0.92 }));
+      plane(W, D, M('#5a5b5d', { roughness: 1 }), W / 2, H, D / 2, Math.PI / 2);
+      for (let x = 2; x < W; x += 6) for (let z = 3; z < D; z += 6) KIT.part('tube', B_(0.12, 0.05, 1.5), MAT.lightPanel, null, x, H - 0.03, z, 0, 0, 0, 1, 1, 1, false);
+      const cw = M('#8b8c8e', { roughness: 0.9 });
+      wallX(-0.3, W + 0.3, -0.3, 0, H, cw); wallX(-0.3, W + 0.3, D, D + 0.3, H, cw); wallZ(0, D, -0.3, 0, H, cw);
+      wallZ(0, D, W, W + 0.3, H, cw, [{ a: 21, b: 26, top: 2.6, pass: true }]);
+      floorRect(W, 21, W + 12, 26, M('#58595b', { roughness: 0.95 }), 0.01);
+      const out = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), new THREE.MeshBasicMaterial({ map: cityTex(false), fog: false })); out.position.set(W + 9, 2.4, 23.5); out.rotation.y = -Math.PI / 2; G.add(out);
+      sign(['EXIT 出口'], 1.8, 0.4, W - 0.05, 2.75, 23.5, -Math.PI / 2, '#1e8a4a', '#ffffff', 'bold 80px sans-serif');
+      sign(['B1  P'], 1.0, 0.5, 0.02, 2.0, 4, Math.PI / 2, '#1f3b6e', '#ffffff', 'bold 120px sans-serif');
+      // 白線
+      const line = M('#d9d6cc', { roughness: 0.8 });
+      for (let x = 7.25; x <= 35.5; x += 2.5) { slab(x - 0.05, 1.0, x + 0.05, 6.5, 0, 0.012, line, false); slab(x - 0.05, 12.0, x + 0.05, 20.8, 0, 0.012, line, false); }
+      // 車（空き区画あり）
+      const cars = [[8.5, 3.8, 0], [13.5, 3.8, 3], [16, 3.8, 1], [21, 3.8, 4], [23.5, 3.8, 2], [28.5, 3.8, 5], [33.5, 3.8, 0],
+        [8.5, 14.2, 2], [11, 14.2, 4], [16, 14.2, 0], [18.5, 14.2, 3], [26, 14.2, 1], [31, 14.2, 5],
+        [8.5, 18.6, 1], [13.5, 18.6, 5], [21, 18.6, 2], [23.5, 18.6, 0], [28.5, 18.6, 4], [33.5, 18.6, 3]];
+      for (const [x, z, c] of cars) STAGE_KIT.car(x, z, c);
+      for (const x of [7, 17, 27]) for (const z of [1.2, 16.4]) { box(x - 0.4, z - 0.4, x + 0.4, z + 0.4, H, 'tall'); slab(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 0, H, cw); KIT.part('cstripe', B_(0.82, 0.3, 0.82), M('#e6b422'), null, x, 0.4, z); }
+      // エレベーター（ここから降りてきた）
+      wallZ(0.0, 0.6, 0, 3.4, H, cw); KIT.part('evd', B_(1.1, 2.1, 0.05), MAT.chrome, null, 1.7, 1.05, 0.62);
+      return {
+        seats, sitters: [],
+        elevs: [],
+        exits: [{ type: 'door', zone: [W - 1.0, 21.2, W, 25.8], label: '出口スロープへ！', target: [W + 6, 23.5], how: '駐車場の出口から脱出' }],
+        start: { x: 1.7, z: 1.8, yaw: 0 },
+        cardboard: [[3.5, 15.0, 0], [11.0, 3.8, 0.2], [26.0, 3.8, 0], [21.0, 14.2, 0.3], [34.5, 26.6, 0]],
+        sun: { pos: [20, 30, 14], target: [20, 0, 14], color: '#d8e2ff', intensity: 0.6 }, hemi: 0.55, exposure: 0.85, pointI: 4,
+        points: [[6, 6], [6, 22], [18, 6], [18, 22], [30, 6], [30, 22], [38, 23.5]],
+      };
+    },
+  },
+  {
+    id: 'archive', floor: '本社 B2', name: '資料室・倉庫', W: 34, D: 26, H: 3.0,
+    desc: '背の高い棚が迷路のように並ぶ倉庫。見通しは悪いが、角を曲がると上司と鉢合わせ。',
+    goal: '目標：北東の搬出口から外へ',
+    bosses: [
+      { name: '資料室長', look: 'jicho', speed: 0.9, path: [[1.2, 9.8, 2.0], [32.6, 9.8, 2.0]] },
+      { name: '警備員', look: 'keibi', speed: 0.95, path: [[32.6, 17.8, 2.0], [1.2, 17.8, 2.0]] },
+      { name: '総務課長', look: 'shitsucho', speed: 1.0, path: [[1.0, 1.6, 1.5], [1.0, 24.6, 1.5]] },
+      { name: '係長', look: 'kakaricho', speed: 1.05, path: [[13.5, 13.8, 1.5], [32.6, 13.8, 1.5]] },
+      { name: '主任', look: 'shunin', hardOnly: true, speed: 1.15, path: [[1.6, 5.8, 1.2], [32.6, 5.8, 1.2]] },
+    ],
+    locName: (x, z) => x > 31 && z < 4 ? '搬出口' : 'B2 資料室・倉庫',
+    build() {
+      const W = 34, D = 26, H = 3.0, seats = [];
+      floorRect(0, 0, W, D, M('#7a776f', { roughness: 0.9 }));
+      ceilingRect(0, 0, W, D, H, { panels: true, sx: 3.4, sz: 4 });
+      const cw = M('#a6a39b', { roughness: 0.9 });
+      wallX(-0.3, W + 0.3, -0.3, 0, H, cw); wallX(-0.3, W + 0.3, D, D + 0.3, H, cw); wallZ(0, D, -0.3, 0, H, cw);
+      wallZ(0, D, W, W + 0.3, H, cw, [{ a: 0.6, b: 3.4, top: 2.5, pass: true }]);
+      floorRect(W, 0.6, W + 8, 3.4, M('#6a675f', { roughness: 0.95 }), 0.01);
+      sign(['搬出口'], 1.0, 0.3, W - 0.05, 2.7, 2, -Math.PI / 2, '#1e8a4a', '#ffffff', 'bold 80px sans-serif');
+      const rows = [[3.5, [[3, 12], [15, 26], [29, 32]]], [7.5, [[2, 9], [12, 22], [25, 31]]], [11.5, [[3, 14], [17, 27], [30, 33]]], [15.5, [[2, 10], [13, 20], [23, 31]]], [19.5, [[3, 15], [18, 28], [31, 33.4]]]];
+      for (const [z, segs] of rows) for (const [a, b] of segs) STAGE_KIT.shelf(a, z, b, z + 0.6);
+      // 段ボールの山・作業机
+      for (const [x, z] of [[5, 23], [5.9, 23.2], [5.4, 23.9], [20, 23.6], [20.9, 23.4], [27, 1.2], [27.9, 1.4]]) { box(x - 0.4, z - 0.35, x + 0.4, z + 0.35, 0.8, 'desk'); STAGE_KIT.crate(x, z); }
+      table(10, 22.6, 14, 23.6, MAT.lightWood, 0.74); chair(12, 22.1, 0, MAT.fabBlack); box(11.73, 21.83, 12.27, 22.37, .9, 'chair'); seats.push({ x: 12, z: 22.1, face: Math.PI / 2 });
+      return {
+        seats, sitters: [],
+        elevs: [],
+        exits: [{ type: 'door', zone: [W - 1.0, 0.8, W, 3.2], label: '搬出口へ！', target: [W + 5, 2], how: '搬出口から脱出' }],
+        start: { x: 4.5, z: 25.0, yaw: Math.PI / 2 },
+        cardboard: [[16.0, 1.6, 0], [10.5, 5.8, 0.2], [28.0, 13.8, 0], [7.0, 17.8, 0.3], [24.5, 23.0, 0]],
+        sun: { pos: [17, 30, 13], target: [17, 0, 13], color: '#ffe8c8', intensity: 0.5 }, hemi: 0.6, exposure: 0.9, pointI: 4,
+        points: [[5, 5], [5, 21], [17, 5], [17, 21], [29, 5], [29, 21], [17, 13]],
       };
     },
   },
@@ -1580,7 +1943,7 @@ function update(dt) {
   if (meter >= 1) return caught(seer, atDesk ? pick(DESK_LINES) : pick(BOSS_LINES[seer.name] || BOSS_LINES['課長']));
 
   const ex = exitAt(player.x, player.z);
-  if (ex && ex.type === 'door') { exitTarget = ex.target; return escape('正面玄関から脱出'); }
+  if (ex && ex.type === 'door') { exitTarget = ex.target; return escape(ex.how || '正面玄関から脱出'); }
   if (elevWait >= 0) {
     if (!ex || ex.type !== 'elev') { elevWait = -1; }
     else {
@@ -1659,7 +2022,7 @@ function spawnDesks() {
   deskLayer.clear(); desks = [];
   const used = new Set(STAGE.sitters), st = STAGE.start, cand = [];
   STAGE.seats.forEach((s, i) => {
-    if (used.has(i)) return;
+    if (used.has(i) || bosses.some(b => Math.hypot(b.x - s.x, b.z - s.z) < 0.6)) return;
     const ox = s.x - Math.cos(s.face) * 0.8, oz = s.z - Math.sin(s.face) * 0.8;
     if (hitsAny(ox, oz, 0.3) || Math.hypot(ox - st.x, oz - st.z) < 3 || exitAt(ox, oz)) return;
     cand.push({ x: s.x, z: s.z, face: s.face, ox, oz });
@@ -1833,6 +2196,7 @@ function escape(how, delay = 0) {
   state = 'escape'; cutT = 0; document.exitPointerLock?.();
   SND.stopBgm(); SND.success();
   setTimeout(() => {
+    if (state !== 'escape') return;
     const over = gameSec / 60;
     const rank = over <= 3 ? ['S', '伝説の定時退社者'] : over <= 5 ? ['A', '華麗なる定時退社'] : over <= 8 ? ['B', 'ほぼ定時'] : ['C', '定時…とは'];
     overlay(`<h1>定時退社 成功！</h1><p style="opacity:.75">${STAGE.floor} ${STAGE.name}・${D().label}</p><p class="big">${how}　退社時刻 ${fmt(gameSec)}</p>
@@ -1908,17 +2272,17 @@ function showSelect() {
   state = 'select'; SND.bgm('title'); SND.setDuck(1); SND.setTension(0);
   const c = CHARACTERS[0];
   const face = c.photo && PHOTOS[c.photo] ? `<img class="face sm" src="${PHOTOS[c.photo]}">` : '';
-  const stageCards = STAGES.map((s, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${s.floor}</div><div class="snm">${s.name}</div><div class="sds">${s.desc}</div></div>`).join('');
+  const stageCards = STAGES.map((s, i) => `<div class="scard${i === selStage ? ' sel' : ''}" data-i="${i}"><div class="sfl">${s.floor}</div><div class="snm">${s.name}</div></div>`).join('');
   const diffs = Object.entries(DIFFS).map(([k, d]) => `<button class="diff${k === diffKey ? ' sel' : ''}" data-k="${k}">${d.label}</button>`).join('');
   const qs = [['high', '高画質'], ['low', '軽量']].map(([k, l]) => `<button class="qual${k === quality ? ' sel' : ''}" data-q="${k}">${l}</button>`).join('');
   overlay(`<h1>今日の退社ルート</h1>
     <div class="who">${face}<div><div class="nm">${c.name}</div><div class="dp">${c.dept}　足の速さ <b>${stars(c.stars[0])}</b>　気配の消し方 <b>${stars(c.stars[1])}</b></div></div></div>
-    <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div>
+    <div class="dlab" style="margin-top:18px">ステージ</div><div class="scards">${stageCards}</div><div class="sdesc" id="sDesc">${STAGES[selStage].desc}</div>
     <div class="diffs"><div class="dlab">難易度</div><div class="drow">${diffs}</div><div class="ddesc" id="dDesc">${D().desc}</div></div>
     <div class="diffs"><div class="dlab">画質</div><div class="drow">${qs}</div></div>
     ${controlsHTML(true)}
     <button class="btn" id="bGo">退社する</button>`, true);
-  document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
+  document.querySelectorAll('.scard').forEach(el => el.onclick = () => { selStage = +el.dataset.i; $('sDesc').textContent = STAGES[selStage].desc; document.querySelectorAll('.scard').forEach(x => x.classList.toggle('sel', x === el)); });
   document.querySelectorAll('.diff').forEach(el => el.onclick = () => { diffKey = el.dataset.k; document.querySelectorAll('.diff').forEach(x => x.classList.toggle('sel', x === el)); $('dDesc').textContent = D().desc; });
   document.querySelectorAll('.qual').forEach(el => el.onclick = () => { quality = el.dataset.q; localStorage.setItem('teiji-quality', quality); document.querySelectorAll('.qual').forEach(x => x.classList.toggle('sel', x === el)); onResize(); });
   $('bGo').onclick = () => { if (IS_TOUCH) { try { const r = document.documentElement.requestFullscreen?.(); r && r.then(() => screen.orientation?.lock?.('landscape')).catch(() => {}); } catch (e) {} } $('bGo').textContent = '読み込み中…'; setTimeout(() => startGame(CHARACTERS[0], selStage), 30); };

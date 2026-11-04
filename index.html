@@ -228,6 +228,8 @@ const CHARACTERS = [
     speed: 1.05, stealth: 1.15, desc: '腰に手を当てた余裕の構えで、堂々と定時を狙う。', stars: [3, 4] },
 ];
 const BOSS_LINES = {
+  '庶務課長': ['あ、ちょうどよかった。倉庫の棚卸し、手伝ってもらえる？', 'こんなところで何してるの？備品の発注、今日までだったよね。'],
+  '庶務係長': ['ロッカーの鍵、返却まだですよね？ちょっと一緒に確認しましょう。', 'お疲れさまです！あ、ついでに段ボール運ぶの手伝ってもらえます？'],
   '係長': ['あ、ちょっといいですか？明日の資料なんですけど。', 'もう帰るんですか？例の件、少しだけ相談させてください。'],
   '課長': ['あとでちょっといい？', '帰る前にさ、5分だけいいかな。'],
   '部長': ['この資料だけ見てくれる？5分で終わるから。', 'お、ちょうどいいところに。'],
@@ -1115,10 +1117,10 @@ loadNPCs().then(() => { window.__npc = NPC.ready; if (STAGE && state !== 'play')
 // ================== 難易度 ==================
 const DIFFS = {
   beginner: { label: 'かんたん', desc: 'はじめての人向け。上司はかなり鈍く、少し見られてもすぐ忘れる。エレベーターも安全。', range: 0.6, fov: 0.75, gain: 0.35, decay: 0.8, speed: 0.75, elevRisk: 0, extra: false },
-  easy:   { label: 'やさしい', desc: '上司の視界が狭く、気づくのも遅い。エレベーターもほぼ安全。', range: 0.72, fov: 0.85, gain: 0.55, decay: 0.55, speed: 0.85, elevRisk: 0.2, extra: false },
-  normal: { label: 'ふつう', desc: '定時退社の標準。上司たちの目をかいくぐれ。', range: 1.0, fov: 1.0, gain: 1.0, decay: 0.32, speed: 1.0, elevRisk: 0.4, extra: false },
-  hard:   { label: 'むずかしい', desc: '視界が広く、すぐ気づかれる。上司が1人増える。エレベーターは危険。', range: 1.2, fov: 1.15, gain: 1.6, decay: 0.2, speed: 1.2, elevRisk: 0.65, extra: true },
-  oni:    { label: '鬼', desc: '繁忙期の月末。上司は遠くまで見えて一瞬で気づき、なかなか忘れない。エレベーターはほぼアウト。', range: 1.35, fov: 1.3, gain: 2.3, decay: 0.12, speed: 1.35, elevRisk: 0.85, extra: true },
+  easy:   { label: 'やさしい', desc: '上司の視界が狭く、気づくのも遅い。エレベーターに上司が乗っていることはまれ。', range: 0.72, fov: 0.85, gain: 0.55, decay: 0.55, speed: 0.85, elevRisk: 0.2, extra: false },
+  normal: { label: 'ふつう', desc: '定時退社の標準。上司たちの目をかいくぐれ。エレベーターに上司が乗っていたら、気配がした時点で離れて隠れる。', range: 1.0, fov: 1.0, gain: 1.0, decay: 0.32, speed: 1.0, elevRisk: 0.4, extra: false },
+  hard:   { label: 'むずかしい', desc: '視界が広く、すぐ気づかれる。上司が1人増える。エレベーターに上司がよく乗っている。', range: 1.2, fov: 1.15, gain: 1.6, decay: 0.2, speed: 1.2, elevRisk: 0.65, extra: true },
+  oni:    { label: '鬼', desc: '繁忙期の月末。上司は遠くまで見えて一瞬で気づき、なかなか忘れない。エレベーターにはほぼ毎回上司が乗っている。', range: 1.35, fov: 1.3, gain: 2.3, decay: 0.12, speed: 1.35, elevRisk: 0.85, extra: true },
 };
 let diffKey = 'normal';
 const D = () => DIFFS[diffKey];
@@ -1188,7 +1190,7 @@ const STAGE_KIT = {
 };
 const STAGES = [
   {
-    id: 'sales', floor: '本社 8F', name: '営業フロア', W: 40, D: 26, H: 2.7,
+    id: 'sales', annexZ: 21.5, floor: '本社 8F', name: '営業フロア', W: 40, D: 26, H: 2.7,
     desc: 'いつもの職場。島型の机が並ぶ営業フロアを抜け、エレベーターか非常階段へ。',
     goal: '目標：エレベーター or 非常階段',
     bosses: [
@@ -1208,7 +1210,7 @@ const STAGES = [
       windowWallNorth(0, OW, 0, H);
       wallX(OW, W + 0.3, -0.3, 0, H, MAT.paint2);
       wallX(-0.3, W + 0.3, D, D + 0.3, H, MAT.paint);
-      wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       wallZ(0, D, W, W + 0.3, H, MAT.paint2, [{ a: 3.45, b: 4.55, top: 2.25 }, { a: 6.45, b: 7.55, top: 2.25 }, { a: 21.5, b: 23, top: 2.15 }]);
       wallZ(0, D, OW, OW + 0.3, H, MAT.paint, [{ a: 11, b: 13, top: 2.25, pass: true }]);
       // 島型の机 3列×4島
@@ -1248,7 +1250,7 @@ const STAGES = [
     },
   },
   {
-    id: 'exec', floor: '本社 12F', name: '役員フロア', W: 36, D: 24, H: 2.9,
+    id: 'exec', annexZ: 11.7, floor: '本社 12F', name: '役員フロア', W: 36, D: 24, H: 2.9,
     desc: 'ガラス張りの会議室が並ぶ廊下。ガラスは視線を通す。社長室に隠れながら奥のエレベーターへ。',
     goal: '目標：奥のエレベーター or 非常階段',
     bosses: [
@@ -1271,7 +1273,7 @@ const STAGES = [
       windowWallNorth(0, 28, 0, H, { blinds: 0.25 });
       wallX(28, W + 0.3, -0.3, 0, H, MAT.paint2);
       wallX(-0.3, W + 0.3, D, D + 0.3, H, MAT.paint);
-      wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       wallZ(0, D, W, W + 0.3, H, MAT.paint2, [{ a: 4.45, b: 5.55, top: 2.25 }, { a: 7.45, b: 8.55, top: 2.25 }, { a: 19.5, b: 21, top: 2.15 }]);
       wallZ(0, D, 28, 28.3, H, MAT.paint, [{ a: 10, b: 14, top: 2.5, pass: true }]);
       // ガラス張りの会議室 ×3（扉の位置だけ通れる）
@@ -1324,7 +1326,7 @@ const STAGES = [
     },
   },
   {
-    id: 'lobby', floor: '本社 1F', name: 'エントランス', W: 34, D: 26, H: 4.2,
+    id: 'lobby', annexZ: 4.5, floor: '本社 1F', name: 'エントランス', W: 34, D: 26, H: 4.2,
     desc: '最後の関門。セキュリティゲートを抜け、大理石のロビーを横切って正面玄関から外へ。',
     goal: '目標：正面玄関（自動ドア）から外へ',
     bosses: [
@@ -1340,7 +1342,7 @@ const STAGES = [
       ceilingRect(0, 0, W, D, H, { panels: false, down: true });
       // 北壁（エレベーター3基）
       wallX(-0.3, W + 0.3, -0.3, 0, H, MAT.paint2, [{ a: 3.45, b: 4.55, top: 2.25 }, { a: 6.95, b: 8.05, top: 2.25 }, { a: 10.45, b: 11.55, top: 2.25 }]);
-      wallZ(0, D, -0.3, 0, H, MAT.paint2); wallZ(0, D, W, W + 0.3, H, MAT.paint2);
+      wallZ(0, D, -0.3, 0, H, MAT.paint2, annexCut()); wallZ(0, D, W, W + 0.3, H, MAT.paint2);
       // 南のガラス張り正面（自動ドアのところだけ通れる）
       box(-0.3, D, 14.5, D + 0.3, H, 'wall'); box(19.5, D, W + 0.3, D + 0.3, H, 'wall');
       const fg = mesh(new THREE.PlaneGeometry(W, H - 0.2), MAT.glass, W / 2, H / 2, D + 0.1, 0, false); fg.renderOrder = 3;
@@ -1388,7 +1390,7 @@ const STAGES = [
   },
   // ======== 追加ステージ（共通の部品は STAGE_KIT） ========
   {
-    id: 'soumu', floor: '本社 3F', name: '総務・経理フロア', W: 36, D: 24, H: 2.7,
+    id: 'soumu', annexZ: 14.0, floor: '本社 3F', name: '総務・経理フロア', W: 36, D: 24, H: 2.7,
     desc: '書類棚とロッカーが並ぶ静かなフロア。棚の陰をつたって、奥のエレベーターホールへ。',
     goal: '目標：エレベーター or 非常階段',
     bosses: [
@@ -1404,7 +1406,7 @@ const STAGES = [
       floorRect(0, 0, OW, D, MAT.carpet(OW, D));
       ceilingRect(0, 0, OW, D, H, { panels: true });
       windowWallNorth(0, OW, 0, H);
-      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       const hall = STAGE_KIT.eastHall(W, D, H, OW, [[10, 13]], '3F');
       island(3, 4, 3, seats); island(12, 4, 3, seats); island(3, 10, 3, seats); island(12, 10, 3, seats);
       // 部長席（島を見渡す）
@@ -1428,7 +1430,7 @@ const STAGES = [
     },
   },
   {
-    id: 'dev', floor: '本社 5F', name: '開発部', W: 38, D: 26, H: 2.8,
+    id: 'dev', annexZ: 14.5, floor: '本社 5F', name: '開発部', W: 38, D: 26, H: 2.8,
     desc: 'モニターがずらりと並ぶエンジニアの島。サーバールームのガラス越しの視線に注意。',
     goal: '目標：エレベーター or 非常階段',
     bosses: [
@@ -1444,7 +1446,7 @@ const STAGES = [
       floorRect(0, 0, OW, D, MAT.carpet(OW, D)); floorRect(0, 0, OW, D, M('#2c3b4d', { transparent: true, opacity: 0.3, depthWrite: false }), 0.002);
       ceilingRect(0, 0, OW, D, H, { panels: true });
       windowWallNorth(0, OW, 0, H, { blinds: 0.6 });
-      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       const hall = STAGE_KIT.eastHall(W, D, H, OW, [[15, 18.5]], '5F');
       // 長机の列（北向きに座る）×2ブロック×3列
       for (const [x0, x1] of [[3, 13], [16, 26]]) for (const z of [3.6, 8.4, 13.2]) {
@@ -1473,7 +1475,7 @@ const STAGES = [
     },
   },
   {
-    id: 'call', floor: '本社 7F', name: 'コールセンター', W: 38, D: 26, H: 2.7,
+    id: 'call', annexZ: 23.5, floor: '本社 7F', name: 'コールセンター', W: 38, D: 26, H: 2.7,
     desc: 'ブースがぎっしり並ぶ電話の海。立つと仕切りの上から丸見え。SVの巡回をかわせ。',
     goal: '目標：北側のエレベーター or 非常階段',
     bosses: [
@@ -1489,7 +1491,7 @@ const STAGES = [
       floorRect(0, 0, OW, D, MAT.carpet(OW, D)); floorRect(0, 0, OW, D, M('#5a3d2c', { transparent: true, opacity: 0.22, depthWrite: false }), 0.002);
       ceilingRect(0, 0, OW, D, H, { panels: true });
       windowWallNorth(0, OW, 0, H, { blinds: 0.7 });
-      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       const hall = STAGE_KIT.eastHall(W, D, H, OW, [[2.6, 6.2]], '7F');
       const part = M('#5d6f86', { roughness: 0.95 });
       for (const z of [3, 8, 13, 18]) {
@@ -1517,7 +1519,7 @@ const STAGES = [
     },
   },
   {
-    id: 'cafe', floor: '本社 10F', name: '社員食堂', W: 38, D: 26, H: 3.0,
+    id: 'cafe', annexZ: 22.5, floor: '本社 10F', name: '社員食堂', W: 38, D: 26, H: 3.0,
     desc: '夕方の食堂は残業前の腹ごしらえ中。テーブルの陰にしゃがみながら進もう。',
     goal: '目標：エレベーター or 非常階段',
     bosses: [
@@ -1533,7 +1535,7 @@ const STAGES = [
       floorRect(0, 0, OW, D, MAT.tiled(TX.lightWood, OW / 2.5, D / 0.6, { roughness: 0.45 }));
       ceilingRect(0, 0, OW, D, H, { panels: false, down: true });
       windowWallNorth(0, OW, 0, H, { blinds: 0.15, top: 2.6 });
-      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       const hall = STAGE_KIT.eastHall(W, D, H, OW, [[9, 12]], '10F');
       for (const x of [3, 8, 13, 18]) for (const z of [4, 9, 14]) {
         table(x, z, x + 1.6, z + 0.9, MAT.white, 0.72);
@@ -1561,7 +1563,7 @@ const STAGES = [
     },
   },
   {
-    id: 'training', floor: '本社 6F', name: '研修センター', W: 38, D: 24, H: 2.8,
+    id: 'training', annexZ: 3.5, floor: '本社 6F', name: '研修センター', W: 38, D: 24, H: 2.8,
     desc: '新人研修の真っ最中。講師の目を盗んで教室を抜け、大会議室と廊下を通ってエレベーターへ。',
     goal: '目標：廊下の先のエレベーター or 非常階段',
     bosses: [
@@ -1576,7 +1578,7 @@ const STAGES = [
       floorRect(0, 0, OW, 18, MAT.carpet(OW, 18)); floorRect(0, 18, OW, D, MAT.tiled(TX.stone, OW / 1.2, 6 / 1.2, { roughness: 0.35 }));
       ceilingRect(0, 0, OW, D, H, { panels: true });
       windowWallNorth(0, OW, 0, H, { blinds: 0.5 });
-      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint);
+      wallX(-0.3, OW, D, D + 0.3, H, MAT.paint); wallZ(0, D, -0.3, 0, H, MAT.paint, annexCut());
       const hall = STAGE_KIT.eastHall(W, D, H, OW, [[19.2, 22.8]], '6F');
       wallX(0, OW, 18, 18.15, H, MAT.paint, [{ a: 10, b: 11.6, top: 2.2, pass: true }, { a: 22, b: 23.6, top: 2.2, pass: true }]);
       wallZ(0, 18, 14, 14.15, H, MAT.paint, [{ a: 8, b: 9.6, top: 2.2, pass: true }]);
@@ -1608,7 +1610,7 @@ const STAGES = [
     },
   },
   {
-    id: 'parking', floor: '本社 B1', name: '地下駐車場', W: 40, D: 28, H: 3.0,
+    id: 'parking', annexZ: 3.0, floor: '本社 B1', name: '地下駐車場', W: 40, D: 28, H: 3.0,
     desc: '薄暗い地下駐車場。車の陰にしゃがんで警備員をやり過ごし、出口スロープへ。',
     goal: '目標：東の出口スロープから外へ',
     bosses: [
@@ -1625,7 +1627,7 @@ const STAGES = [
       plane(W, D, M('#5a5b5d', { roughness: 1 }), W / 2, H, D / 2, Math.PI / 2);
       for (let x = 2; x < W; x += 6) for (let z = 3; z < D; z += 6) KIT.part('tube', B_(0.12, 0.05, 1.5), MAT.lightPanel, null, x, H - 0.03, z, 0, 0, 0, 1, 1, 1, false);
       const cw = M('#8b8c8e', { roughness: 0.9 });
-      wallX(-0.3, W + 0.3, -0.3, 0, H, cw); wallX(-0.3, W + 0.3, D, D + 0.3, H, cw); wallZ(0, D, -0.3, 0, H, cw);
+      wallX(-0.3, W + 0.3, -0.3, 0, H, cw); wallX(-0.3, W + 0.3, D, D + 0.3, H, cw); wallZ(0, D, -0.3, 0, H, cw, annexCut());
       wallZ(0, D, W, W + 0.3, H, cw, [{ a: 21, b: 26, top: 2.6, pass: true }]);
       floorRect(W, 21, W + 12, 26, M('#58595b', { roughness: 0.95 }), 0.01);
       const out = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), new THREE.MeshBasicMaterial({ map: cityTex(false), fog: false })); out.position.set(W + 9, 2.4, 23.5); out.rotation.y = -Math.PI / 2; G.add(out);
@@ -1654,7 +1656,7 @@ const STAGES = [
     },
   },
   {
-    id: 'archive', floor: '本社 B2', name: '資料室・倉庫', W: 34, D: 26, H: 3.0,
+    id: 'archive', annexZ: 23.5, floor: '本社 B2', name: '資料室・倉庫', W: 34, D: 26, H: 3.0,
     desc: '背の高い棚が迷路のように並ぶ倉庫。見通しは悪いが、角を曲がると上司と鉢合わせ。',
     goal: '目標：北東の搬出口から外へ',
     bosses: [
@@ -1670,7 +1672,7 @@ const STAGES = [
       floorRect(0, 0, W, D, M('#7a776f', { roughness: 0.9 }));
       ceilingRect(0, 0, W, D, H, { panels: true, sx: 3.4, sz: 4 });
       const cw = M('#a6a39b', { roughness: 0.9 });
-      wallX(-0.3, W + 0.3, -0.3, 0, H, cw); wallX(-0.3, W + 0.3, D, D + 0.3, H, cw); wallZ(0, D, -0.3, 0, H, cw);
+      wallX(-0.3, W + 0.3, -0.3, 0, H, cw); wallX(-0.3, W + 0.3, D, D + 0.3, H, cw); wallZ(0, D, -0.3, 0, H, cw, annexCut());
       wallZ(0, D, W, W + 0.3, H, cw, [{ a: 0.6, b: 3.4, top: 2.5, pass: true }]);
       floorRect(W, 0.6, W + 8, 3.4, M('#6a675f', { roughness: 0.95 }), 0.01);
       sign(['搬出口'], 1.0, 0.3, W - 0.05, 2.7, 2, -Math.PI / 2, '#1e8a4a', '#ffffff', 'bold 80px sans-serif');
@@ -1718,18 +1720,72 @@ function exLabel(ex) {
 function floorGoal() { return lastFloor() ? STAGE.goal : '目標：エレベーター or 非常階段で下の階へ'; }
 let lightsGroup = null;
 
+// ================== 西側バックヤード（全フロア共通の追加区画。ここから出発する） ==================
+const ANNEX_W = 15;
+let ANNEX_DZ = null;
+const annexCut = () => ANNEX_DZ == null ? [] : [{ a: ANNEX_DZ - 0.8, b: ANNEX_DZ + 0.8, top: 2.25, pass: true }];
+// 幅5mの通路3本をつづら折りにつなぐ。1本目＝更衣室、2本目＝書庫（上司が往復）、3本目＝給湯室 → 本フロアへの通用口
+function westAnnex(S, info) {
+  const D = S.D, H = S.H, X0 = -ANNEX_W, dz = ANNEX_DZ, north = dz < D / 2, G2 = 2.8;
+  const e1 = north ? D - 1.7 : 1.7, e2 = north ? 1.7 : D - 1.7; // e1: 出発側の端、e2: 通用口側の端
+  floorRect(X0, 0, 0, D, MAT.tiled(TX.stone, ANNEX_W / 1.2, D / 1.2, { roughness: 0.5 }));
+  floorRect(X0, 0, 0, D, M('#5b6470', { transparent: true, opacity: 0.35, depthWrite: false }), 0.002);
+  ceilingRect(X0, 0, 0, D, H, { panels: true });
+  wallX(X0 - 0.3, 0, -0.3, 0, H, MAT.paint2); wallX(X0 - 0.3, 0, D, D + 0.3, H, MAT.paint2);
+  wallZ(-0.3, D + 0.3, X0 - 0.3, X0, H, MAT.paint2);
+  // 仕切り（1本目と2本目は e2 側、2本目と3本目は e1 側でつながる）
+  if (north) { wallZ(G2, D, -10.15, -9.85, H, MAT.paint); wallZ(0, D - G2, -5.15, -4.85, H, MAT.paint); }
+  else { wallZ(0, D - G2, -10.15, -9.85, H, MAT.paint); wallZ(G2, D, -5.15, -4.85, H, MAT.paint); }
+  // 1本目：更衣室
+  lockers(X0, 3.6, X0 + 0.5, D - 3.6, 1.9);
+  lockers(-12.8, D / 2 - 3, -12.2, D / 2 + 3, 1.9);
+  for (const z of [D / 2 - 5.2, D / 2 + 5.2]) { box(-12.9, z - 0.2, -12.1, z + 0.2, 0.45, 'desk'); slab(-12.9, z - 0.2, -12.1, z + 0.2, 0.38, 0.45, MAT.wood); }
+  // 2本目：書庫。左右の棚のあいだが隠れ場所
+  const zA = G2 + 0.6, L = D - 2 * zA, alc = [];
+  for (const [f, side] of [[0.12, 'w'], [0.42, 'e'], [0.55, 'w'], [0.85, 'e'], [0.95, 'w']]) {
+    const c = zA + L * f; if (alc.some(a => a.side === side && Math.abs(a.c - c) < 3.4)) continue; alc.push({ c, side });
+    const [x0, x1] = side === 'w' ? [-9.85, -8.45] : [-6.55, -5.15];
+    bookshelf(x0, c - 1.45, x1, c - 1.0, 2.0); bookshelf(x0, c + 1.0, x1, c + 1.45, 2.0);
+  }
+  // 3本目：給湯室
+  copier(-0.9, D / 2 + (north ? 5 : -5), -Math.PI / 2); box(-1.25, D / 2 + (north ? 4.45 : -5.55), -0.55, D / 2 + (north ? 5.55 : -4.45), 1.1, 'tall');
+  box(-4.85, D / 2 - 1.6, -4.15, D / 2 + 1.6, 0.9, 'desk'); slab(-4.85, D / 2 - 1.6, -4.15, D / 2 + 1.6, 0, 0.9, MAT.wood);
+  waterServer(-4.55, D / 2 + 2.2); box(-4.75, D / 2 + 2.0, -4.35, D / 2 + 2.4, 1.3, 'tall');
+  for (const [x, z] of [[X0 + 0.9, e2 + (north ? -0.6 : 0.6) * 0], [-0.9, e1]]) plant(x, z);
+  sign(['バックヤード'], 1.8, 0.32, 0.02, 2.45, dz, Math.PI / 2, '#2b3036', '#ffffff', 'bold 60px sans-serif');
+  sign(['更衣室'], 1.2, 0.3, -9.84, 2.4, e1 + (north ? -2.5 : 2.5), Math.PI / 2, '#3d4450', '#ffffff', 'bold 70px sans-serif');
+  sign(['書庫'], 1.0, 0.3, -5.16, 2.4, e1 + (north ? -2.5 : 2.5), -Math.PI / 2, '#3d4450', '#ffffff', 'bold 70px sans-serif');
+  sign(['給湯室'], 1.2, 0.3, -4.84, 2.4, e2 + (north ? 3.5 : -3.5), Math.PI / 2, '#3d4450', '#ffffff', 'bold 70px sans-serif');
+  // 上司・出発地点など
+  const zs = zA - 0.6, ze = D - zA + 0.6;
+  const extra = [
+    { name: '庶務課長', look: 'kacho', speed: 0.85, path: [[-7.5, zs, 2.4], [-7.5, ze, 2.4]], annex: true },
+    { name: '庶務係長', look: 'shunin', hardOnly: true, speed: 0.9, path: [[-4.3, D / 2 + (north ? -4 : 4), 1.6], [-0.9, D / 2 + (north ? -4 : 4), 1.6]], annex: true },
+  ];
+  const old = info.locName || S.locName;
+  Object.assign(info, {
+    X0, bosses: S.bosses.concat(extra),
+    start: { x: -12.5, z: e1, yaw: north ? Math.PI : 0 },
+    cardboard: (info.cardboard || []).concat([[-6.0, e2 + (north ? 1.6 : -1.6), 0.3], [-2.2, e1 + (north ? -3 : 3), 0], [-11.0, D / 2 + (north ? -6 : 6), 0.2]]),
+    points: info.points.concat([[-12.5, D * 0.3], [-12.5, D * 0.7], [-7.5, D * 0.25], [-7.5, D * 0.75], [-2.5, D * 0.3], [-2.5, D * 0.7]]),
+    locName: (x, z) => x < 0 ? 'バックヤード' : old(x, z),
+  });
+}
+
 function buildStage(idx) {
   stageIdx = idx;
   scene.remove(G); G = new THREE.Group(); scene.add(G); OBST = []; KIT = new Kit();
   const S = STAGES[idx];
+  ANNEX_DZ = S.annexZ ?? null;
   const info = S.build();
+  if (ANNEX_DZ != null) westAnnex(S, info);
   KIT.flush();
   // 照明
   const hemi = new THREE.HemisphereLight('#fff8ee', '#4b4743', info.hemi * (TOUCH_DEV ? 1.9 : 1)); G.add(hemi);
   const sun = new THREE.DirectionalLight(info.sun.color, info.sun.intensity);
   sun.position.set(...info.sun.pos); sun.target.position.set(...info.sun.target);
   sun.castShadow = !TOUCH_DEV; { const sm = TOUCH_DEV ? (quality === 'high' ? 1024 : 512) : (quality === 'high' ? 2048 : 1024); sun.shadow.mapSize.set(sm, sm); }
-  const r = Math.max(S.W, S.D) * 0.85;
+  const r = Math.max(S.W + ANNEX_W, S.D) * 0.85;
   Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: 90 });
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; G.add(sun, sun.target);
   if (!TOUCH_DEV) for (const [x, z] of info.points) { const p = new THREE.PointLight('#f4f6ff', info.pointI || 5, 13, 1.6); p.position.set(x, S.H - 0.3, z); G.add(p); }
@@ -1754,8 +1810,11 @@ function buildStage(idx) {
 let bosses = [], bossLayer = new THREE.Group(); scene.add(bossLayer);
 function spawnBosses() {
   scene.remove(bossLayer); bossLayer = new THREE.Group(); scene.add(bossLayer);
-  bosses = STAGE.bosses.filter(d => !d.hardOnly || D().extra).map(d => {
-    const p = makeStaff(d.look);
+  bosses = STAGE.bosses.filter(d => !d.hardOnly || D().extra).map(makeBoss);
+}
+function makeBoss(d) {
+  {
+    const p = makeStaff(d.look, d.colors);
     const b = { ...d, p, x: d.path[0][0], z: d.path[0][1], wp: 1 % d.path.length, wait: d.path[0][2], look: 0, sus: 0,
       fov: 1.22 * D().fov, range: 9 * D().range, ang: 0, baseAng: 0 };
     b.speed = d.speed * D().speed;
@@ -1776,7 +1835,7 @@ function spawnBosses() {
     bossLayer.add(p.root, b.cone, b.mark, b.tag, b.phoneTag, b.ringTag);
     placeBoss(b, 0, 0);
     return b;
-  });
+  }
 }
 function updateCone(b, crouch) {
   const pos = b.cone.geometry.attributes.position, N = b.coneN, range = b.range * (crouch ? 0.75 : 1);
@@ -1808,7 +1867,7 @@ function placeBoss(b, dt, moving) {
 
 // ================== プレイヤー・入力 ==================
 let chara = CHARACTERS[0], player = null, pl = null;
-let state = 'title', gameSec = 0, yaw = Math.PI / 2, pitch = 0.32, meter = 0, elevWait = -1, elevTarget = null, caughtBy = null, cutT = 0, exitTarget = null, elevBoss = null;
+let state = 'title', gameSec = 0, yaw = Math.PI / 2, pitch = 0.32, meter = 0, elevWait = -1, elevTarget = null, caughtBy = null, cutT = 0, exitTarget = null, elevBoss = null, elevCall = null;
 const keys = {};
 let sneakToggle = false;
 addEventListener('keydown', e => {
@@ -1878,7 +1937,8 @@ function placeOnFloor() {
   (STAGE.coworkers || []).forEach(c => { c.cool = Math.hypot(c.x - player.x, c.z - player.z) < 2.5 ? 25 : 0; c.say.visible = false; c.sayT = 0; });
   $('items').style.display = 'block'; updateItems();
   if (elevBoss) { G.remove(elevBoss.root); elevBoss = null; }
-  for (const e of STAGE.elevs) { e.open = 0; e.opening = false; }
+  elevCall = null;
+  for (const e of STAGE.elevs) { e.open = 0; e.opening = false; e.safe = false; }
   $('goal').textContent = floorGoal(); $('progress').style.display = 'none';
   stepDist = 0; heartT = 0; prevMeter = 0; prevCrouch = false; camSnap = true;
 }
@@ -1905,7 +1965,11 @@ function doAction() {
   const ex = exitAt(player.x, player.z);
   if (!ex) { const n = nearSpot(); if (n && n.box) enterBox(n.box); else if (n && n.desk) enterDesk(n.desk); return; }
   if (ex.type === 'stairs') { if (!lastFloor()) return nextFloor('非常階段で下の階へ…'); exitTarget = ex.target; return escape('非常階段で脱出'); }
-  if (ex.type === 'elev' && elevWait < 0) { elevWait = 0; elevTarget = STAGE.elevs.reduce((a, e) => Math.hypot(e.x - player.x, e.z - player.z) < Math.hypot(a.x - player.x, a.z - player.z) ? e : a); }
+  if (ex.type === 'elev' && elevWait < 0) {
+    if (elevCall) return showToast(elevCall.boss ? 'エレベーターに上司が乗っている。いまは離れて隠れよう' : 'エレベーターは使用中');
+    elevWait = 0; elevTarget = STAGE.elevs.reduce((a, e) => Math.hypot(e.x - player.x, e.z - player.z) < Math.hypot(a.x - player.x, a.z - player.z) ? e : a);
+    elevCall = { e: elevTarget, t: 0, boss: !elevTarget.safe && Math.random() < D().elevRisk, warned: false };
+  }
 }
 
 function update(dt) {
@@ -1923,6 +1987,7 @@ function update(dt) {
   if (ml > 1) { mx /= ml; mz /= ml; }
   const dash = !crouch && (keys[' '] || dashTouch);
   const sp = (inBox ? 0.95 : crouch ? 1.25 : dash ? 4.3 : 2.5) * chara.speed;
+  if (elevWait >= 0 && ml > 0.5) { elevWait = -1; if (elevCall && !elevCall.boss) elevCall = null; }
   const frozen = elevWait >= 0 || player.callT > 0 || atDesk;
   if (frozen) { mx = mz = 0; }
   if (ml > 0.05 && !frozen) {
@@ -1976,11 +2041,17 @@ function update(dt) {
         if (dd < 0.05) {
           b.x = n[0]; b.z = n[1]; b.wait = n[2]; b.look = 0; b.wp = (b.wp + 1) % b.path.length;
           const nn = b.path[b.wp]; b.baseAng = Math.atan2(nn[1] - b.z, nn[0] - b.x);
+          if (b.temp) { if (b.wp === 2) b.baseAng = b.outAng; if (b.wp === 0) b.done = true; }
         } else { const s = Math.min(dd, b.speed * dt); b.x += ddx / dd * s; b.z += ddz / dd * s; moving = b.speed; }
       }
     }
     placeBoss(b, dt, moving);
     updateCone(b, crouch);
+  }
+  for (const b of bosses.filter(b => b.done)) {
+    bossLayer.remove(b.p.root, b.cone, b.mark, b.tag, b.phoneTag, b.ringTag); bosses.splice(bosses.indexOf(b), 1);
+    b.elev.opening = false; b.elev.safe = true; elevCall = null;
+    showToast('本部長はエレベーターで去っていった。このエレベーターはもう大丈夫');
   }
   meter = maxSus;
   SND.setTension(meter);
@@ -1991,27 +2062,47 @@ function update(dt) {
 
   const ex = exitAt(player.x, player.z);
   if (ex && ex.type === 'door') { exitTarget = ex.target; return escape(ex.how || '正面玄関から脱出'); }
-  if (elevWait >= 0) {
-    if (!ex || ex.type !== 'elev') { elevWait = -1; }
-    else {
-      if (Math.floor((elevWait + dt) * 2) > Math.floor(elevWait * 2)) SND.tick();
-      elevWait += dt;
-      $('progress').style.display = 'block'; $('pText').textContent = 'エレベーター待ち…（中に上司がいるかも）';
-      $('pFill').style.width = Math.min(100, elevWait / 4 * 100) + '%';
-      if (elevWait >= 4) {
-        elevTarget.opening = true; SND.ding();
-        const ix = elevTarget.x - Math.sin(elevTarget.ry) * 0.9, iz = elevTarget.z - Math.cos(elevTarget.ry) * 0.9;
-        if (Math.random() < D().elevRisk) {
-          elevBoss = makeStaff('honbu', { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
-          elevBoss.root.position.set(ix, 0, iz); elevBoss.root.rotation.y = elevTarget.ry; G.add(elevBoss.root);
-          const fake = { name: '本部長', x: ix, z: iz, p: elevBoss };
-          elevWait = -1; $('progress').style.display = 'none';
-          return caught(fake, BOSS_LINES['本部長'][0], 0.9);
+  if (elevWait >= 0 && (!ex || ex.type !== 'elev')) { elevWait = -1; if (elevCall && !elevCall.boss) elevCall = null; }
+  if (elevCall && elevCall.t < 4) {
+    const c = elevCall, e = c.e;
+    if (elevWait >= 0 && Math.floor((c.t + dt) * 2) > Math.floor(c.t * 2)) SND.tick();
+    c.t += dt;
+    // 上司が乗っているときは、着く少し前に気配でわかる（階数表示が止まる）
+    if (c.boss && !c.warned && c.t >= 1.3) {
+      c.warned = true; SND.notice();
+      c.sign = speechSprite('⚠ 誰か乗ってる…'); c.sign.position.set(e.x + Math.sin(e.ry) * 0.5, 2.55, e.z + Math.cos(e.ry) * 0.5); bossLayer.add(c.sign);
+      showToast('⚠ 階数表示が止まった…上司が乗っている！離れて隠れろ');
+    }
+    if (elevWait >= 0) {
+      $('progress').style.display = 'block';
+      $('pText').textContent = c.warned ? '⚠ 上司が乗っている！動いて離れろ' : 'エレベーター待ち…';
+      $('pFill').style.width = Math.min(100, c.t / 4 * 100) + '%';
+    }
+    if (c.t >= 4) {
+      e.opening = true; SND.ding(); if (c.sign) bossLayer.remove(c.sign);
+      const ix = e.x - Math.sin(e.ry) * 0.9, iz = e.z - Math.cos(e.ry) * 0.9;
+      const here = ex && ex.type === 'elev' && Math.hypot(e.x - player.x, e.z - player.z) < 2.6;
+      if (c.boss && here) {
+        elevBoss = makeStaff('honbu', { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true });
+        elevBoss.root.position.set(ix, 0, iz); elevBoss.root.rotation.y = e.ry; G.add(elevBoss.root);
+        const fake = { name: '本部長', x: ix, z: iz, p: elevBoss };
+        elevWait = -1; elevCall = null; $('progress').style.display = 'none';
+        return caught(fake, BOSS_LINES['本部長'][0], 0.9);
+      }
+      if (c.boss) {
+        // 隠れていれば、本部長はホールを見回してからエレベーターで去る
+        const ox = e.x + Math.sin(e.ry) * 2.4, oz = e.z + Math.cos(e.ry) * 2.4;
+        const b = makeBoss({ name: '本部長', look: 'honbu', colors: { shirt: '#ffffff', pants: '#202226', hair: '#d0d0d0', style: 'gray', jacket: '#1c1f26', tie: '#7a5a1a', glasses: true }, speed: 0.8, path: [[ix, iz, 0.7], [ox, oz, 3.5], [ix, iz, 0]] });
+        b.temp = true; b.elev = e; b.outAng = Math.atan2(oz - iz, ox - ix); bosses.push(b);
+        c.out = b; elevWait = -1; $('progress').style.display = 'none';
+      } else {
+        elevWait = -1; elevCall = null; $('progress').style.display = 'none';
+        if (!here) { setTimeout(() => { e.opening = false; }, 2500); }
+        else {
+          if (!lastFloor()) return nextFloor('エレベーターで下の階へ…');
+          exitTarget = [ix, iz];
+          return escape('エレベーターで脱出', 0.9);
         }
-        elevWait = -1; $('progress').style.display = 'none';
-        if (!lastFloor()) return nextFloor('エレベーターで下の階へ…');
-        exitTarget = [ix, iz];
-        return escape('エレベーターで脱出', 0.9);
       }
     }
   }
@@ -2202,7 +2293,7 @@ function drawMinimap() {
   mm.save(); mm.beginPath(); mm.arc(S / 2, S / 2, S / 2, 0, 7); mm.clip();
   mm.fillStyle = 'rgba(30,34,40,.9)'; mm.fillRect(0, 0, S, S);
   mm.translate(S / 2, S / 2); mm.rotate(yaw - Math.PI); mm.translate(-player.x * sc, -player.z * sc);
-  mm.fillStyle = 'rgba(70,76,86,1)'; mm.fillRect(0, 0, STAGE.W * sc, STAGE.D * sc);
+  mm.fillStyle = 'rgba(70,76,86,1)'; mm.fillRect((STAGE.X0 || 0) * sc, 0, (STAGE.W - (STAGE.X0 || 0)) * sc, STAGE.D * sc);
   for (const b of OBST) { if (b.kind === 'chair') continue; mm.fillStyle = b.kind === 'desk' ? '#8a6a4c' : b.kind === 'glass' ? '#7fb8d6' : '#c9c6bf'; mm.fillRect(b.x0 * sc, b.z0 * sc, Math.max(1.5, (b.x1 - b.x0) * sc), Math.max(1.5, (b.z1 - b.z0) * sc)); }
   mm.fillStyle = '#4fc3f7'; for (const d of desks) if (d !== player.atDesk) { mm.beginPath(); mm.arc(d.x * sc, d.z * sc, 4.5, 0, 7); mm.fill(); }
   mm.fillStyle = '#c08a4a'; for (const c of cardboards) if (c !== player.inBox) mm.fillRect(c.x * sc - 4, c.z * sc - 4, 8, 8);
@@ -2273,7 +2364,7 @@ function updateCamera(dt) {
     const sx = -dz / l, sz = dx / l;
     const tryPos = s => new THREE.Vector3(mid.x + sx * s * 2.4 - dx / l * 0.9, 1.65, mid.z + sz * s * 2.4 - dz / l * 0.9);
     let target = tryPos(1);
-    if (hitsAny(target.x, target.z, 0.2) || target.x < 0.3 || target.z < 0.3 || target.x > STAGE.W - 0.3 || target.z > STAGE.D - 0.3) target = tryPos(-1);
+    if (hitsAny(target.x, target.z, 0.2) || target.x < (STAGE.X0 || 0) + 0.3 || target.z < 0.3 || target.x > STAGE.W - 0.3 || target.z > STAGE.D - 0.3) target = tryPos(-1);
     camPos.lerp(target, Math.min(1, dt * 3)); camLook.lerp(new THREE.Vector3(b.x * 0.65 + player.x * 0.35, b.pose === 'sit' ? 1.2 : 1.55, b.z * 0.65 + player.z * 0.35), Math.min(1, dt * 3));
     camera.position.copy(camPos); camera.lookAt(camLook); return;
   }
@@ -2542,7 +2633,7 @@ window.__validate = () => {
   STAGES.forEach((S, i) => {
     buildStage(i);
     const st = STAGE.start; const rep = { stage: S.id, startOK: !hitsAny(st.x, st.z, 0.3), bossProblems: [], exits: [] };
-    for (const b of S.bosses) {
+    for (const b of STAGE.bosses) {
       for (let k = 0; k < b.path.length; k++) {
         const p = b.path[k], n = b.path[(k + 1) % b.path.length];
         const L = Math.hypot(n[0] - p[0], n[1] - p[1]), steps = Math.max(1, Math.ceil(L / 0.2));
@@ -2550,18 +2641,18 @@ window.__validate = () => {
           if (b.pose !== 'sit' && hitsAny(x, z, 0.25)) { rep.bossProblems.push(`${b.name} @(${x.toFixed(1)},${z.toFixed(1)})`); break; } }
       }
     }
-    const cs = 0.25, nx = Math.ceil(S.W / cs), nz = Math.ceil(S.D / cs), seen = new Uint8Array(nx * nz), q = [];
-    const free = (i, j) => !hitsAny(i * cs + cs / 2, j * cs + cs / 2, 0.3);
-    const si = Math.floor(st.x / cs), sj = Math.floor(st.z / cs); seen[sj * nx + si] = 1; q.push([si, sj]);
+    const X0 = STAGE.X0 || 0, cs = 0.25, nx = Math.ceil((S.W - X0) / cs), nz = Math.ceil(S.D / cs), seen = new Uint8Array(nx * nz), q = [];
+    const free = (i, j) => !hitsAny(X0 + i * cs + cs / 2, j * cs + cs / 2, 0.3);
+    const si = Math.floor((st.x - X0) / cs), sj = Math.floor(st.z / cs); seen[sj * nx + si] = 1; q.push([si, sj]);
     while (q.length) { const [a, c] = q.pop(); for (const [da, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a2 = a + da, c2 = c + dc; if (a2 < 0 || c2 < 0 || a2 >= nx || c2 >= nz) continue; const k = c2 * nx + a2; if (seen[k]) continue; if (!free(a2, c2)) { seen[k] = 2; continue; } seen[k] = 1; q.push([a2, c2]); } }
-    for (const e of STAGE.exits) { let ok = false; for (let j = 0; j < nz && !ok; j++) for (let ii = 0; ii < nx; ii++) { const x = ii * cs + cs / 2, z = j * cs + cs / 2; if (seen[j * nx + ii] === 1 && inZone(e.zone, x, z)) { ok = true; break; } } rep.exits.push(e.type + ':' + ok); }
+    for (const e of STAGE.exits) { let ok = false; for (let j = 0; j < nz && !ok; j++) for (let ii = 0; ii < nx; ii++) { const x = X0 + ii * cs + cs / 2, z = j * cs + cs / 2; if (seen[j * nx + ii] === 1 && inZone(e.zone, x, z)) { ok = true; break; } } rep.exits.push(e.type + ':' + ok); }
     out.push(rep);
   });
   buildStage(0);
   return out;
 };
 window.__setYaw = v => { yaw = v; camSnap = true; };
-window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, get floorStep() { return floorStep; }, ROUTES, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
+window.__game = { get state() { return state; }, get player() { return player; }, get bosses() { return bosses; }, startGame, CHARACTERS, keys, doAction, get meter() { return meter; }, buildStage, get stage() { return STAGE; }, hitsAny, pauseGame, resumeGame, usePhone, get cardboards() { return cardboards; }, get desks() { return desks; }, get floorStep() { return floorStep; }, ROUTES, get elevCall() { return elevCall; }, setDiff(k) { diffKey = k; }, step(n) { for (let i = 0; i < n && state === 'play'; i++) update(0.05); }, get pl() { return pl; }, SND };
 
 buildStage(0);
 showTitle();
